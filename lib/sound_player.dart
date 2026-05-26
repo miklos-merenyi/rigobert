@@ -69,6 +69,64 @@ Uint8List _buildWav(double frequency, int durationMs) {
   return buf.buffer.asUint8List();
 }
 
+/// Noisy, out-of-tune fail sound: three detuned sawtooth-like oscillators
+/// (300 / 317 / 337 Hz) that beat against each other harshly, mixed with
+/// 15 % white noise, under a fast exponential-decay envelope (~600 ms).
+Uint8List _buildFailSound() {
+  const sampleRate = 44100;
+  const durationMs = 650;
+  final numSamples = (sampleRate * durationMs / 1000).round();
+  final dataBytes  = numSamples * 2;
+  final buf = ByteData(44 + dataBytes);
+  final rng = Random();
+
+  void ascii(int off, String s) {
+    for (int i = 0; i < s.length; i++) {
+      buf.setUint8(off + i, s.codeUnitAt(i));
+    }
+  }
+
+  ascii(0, 'RIFF');
+  buf.setUint32(4, 36 + dataBytes, Endian.little);
+  ascii(8, 'WAVE');
+  ascii(12, 'fmt ');
+  buf.setUint32(16, 16, Endian.little);
+  buf.setUint16(20, 1, Endian.little);
+  buf.setUint16(22, 1, Endian.little);
+  buf.setUint32(24, sampleRate, Endian.little);
+  buf.setUint32(28, sampleRate * 2, Endian.little);
+  buf.setUint16(32, 2, Endian.little);
+  buf.setUint16(34, 16, Endian.little);
+  ascii(36, 'data');
+  buf.setUint32(40, dataBytes, Endian.little);
+
+  // Three oscillators spaced to produce fast, clashing beats.
+  // Each uses the first 5 harmonics (sawtooth approximation) for a buzzy timbre.
+  const osc = [300.0, 317.0, 337.0];
+
+  for (int i = 0; i < numSamples; i++) {
+    final t   = i / sampleRate;
+    final env = exp(-t * 7.5); // fast decay
+
+    double s = 0;
+    for (final f in osc) {
+      // Sawtooth from odd harmonics (harsher than pure sine)
+      for (int h = 1; h <= 5; h++) {
+        s += sin(2 * pi * f * h * t) / h;
+      }
+    }
+    s /= osc.length;
+
+    // Mix in white noise (15 %)
+    s = s * 0.85 + (rng.nextDouble() * 2 - 1) * 0.15;
+
+    final v = (s * env * 22000).round().clamp(-32768, 32767);
+    buf.setInt16(44 + i * 2, v, Endian.little);
+  }
+
+  return buf.buffer.asUint8List();
+}
+
 Future<String> _writeTempWav(String name, Uint8List bytes) async {
   final dir = await getTemporaryDirectory();
   final file = File('${dir.path}/$name.wav');
@@ -83,9 +141,12 @@ class SoundPlayer {
   final _comboPlayer  = AudioPlayer();
   // Separate player for the Promenade intro melody.
   final _melodyPlayer = AudioPlayer();
+  // Dedicated player for the fail buzzer.
+  final _failPlayer   = AudioPlayer();
 
   // Pre-written temp file paths, keyed by combo key string.
   final Map<String, String?> _comboPaths = {};
+  String? _failPath;
   bool _ready = false;
 
   SoundPlayer() {
@@ -95,6 +156,9 @@ class SoundPlayer {
     _melodyPlayer
       ..setReleaseMode(ReleaseMode.stop)
       ..setVolume(0.75);
+    _failPlayer
+      ..setReleaseMode(ReleaseMode.stop)
+      ..setVolume(0.85);
     _init();
   }
 
@@ -103,6 +167,7 @@ class SoundPlayer {
       final bytes = _buildWav(entry.value, 1500);
       _comboPaths[entry.key] = await _writeTempWav('rb_${entry.key}', bytes);
     }
+    _failPath = await _writeTempWav('rb_fail', _buildFailSound());
     _ready = true;
   }
 
@@ -120,9 +185,18 @@ class SoundPlayer {
   /// Convenience alias used during sequence display.
   Future<void> playSet(Set<GameColor> colors) => playCombo(colors);
 
+  Future<void> playFail() async {
+    final path = _failPath;
+    if (path == null) return;
+    await _comboPlayer.stop(); // silence any held note first
+    await _failPlayer.stop();
+    await _failPlayer.play(DeviceFileSource(path));
+  }
+
   Future<void> stopAll() async {
     await _comboPlayer.stop();
     await _melodyPlayer.stop();
+    await _failPlayer.stop();
   }
 
   /// Play a melody note at [frequency] Hz (used by the Promenade intro).
@@ -139,5 +213,6 @@ class SoundPlayer {
   void dispose() {
     _comboPlayer.dispose();
     _melodyPlayer.dispose();
+    _failPlayer.dispose();
   }
 }

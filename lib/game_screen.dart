@@ -286,6 +286,7 @@ class _GameScreenState extends State<GameScreen> {
   void _gameOver() {
     _cancelInputTimer();
     _setSecure(false);
+    _sound.playFail();
     _saveRecord(_score);
     setState(() {
       _phase = GamePhase.gameOver;
