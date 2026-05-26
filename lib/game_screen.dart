@@ -8,7 +8,7 @@ import 'circle_buttons.dart';
 import 'game_colors.dart';
 import 'sound_player.dart';
 
-enum GamePhase { idle, showingSequence, playerInput, gameOver }
+enum GamePhase { idle, showingSequence, playerInput, gameOverFlash, gameOver }
 
 enum Difficulty { normal, floating, spinning, both }
 
@@ -312,10 +312,32 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _sound.playFail();
     _saveRecord(_score);
     setState(() {
-      _phase = GamePhase.gameOver;
+      _phase = GamePhase.gameOverFlash;
       _highlightedButtons = {};
       _displayOpacity = 0.0;
     });
+    _runGameOverFlash(_generation);
+  }
+
+  Future<void> _runGameOverFlash(int gen) async {
+    final deadline = DateTime.now().add(const Duration(milliseconds: 2400));
+    while (mounted && _generation == gen && DateTime.now().isBefore(deadline)) {
+      final combo = Set.of(_allCombinations[_random.nextInt(_allCombinations.length)]);
+      setState(() {
+        _highlightedButtons = combo;
+        _displayColor = mixColors(combo);
+        _displayOpacity = 0.75;
+      });
+      await Future.delayed(const Duration(milliseconds: 160));
+      if (!mounted || _generation != gen) return;
+      setState(() {
+        _highlightedButtons = {};
+        _displayOpacity = 0.0;
+      });
+      await Future.delayed(const Duration(milliseconds: 90));
+    }
+    if (!mounted || _generation != gen) return;
+    setState(() => _phase = GamePhase.gameOver);
   }
 
   bool get _buttonsEnabled => _phase == GamePhase.playerInput;
@@ -411,6 +433,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         status = 'Watch carefully…';
       case GamePhase.playerInput:
         status = 'Step ${_playerStep + 1} / ${_sequence.length}';
+      case GamePhase.gameOverFlash:
+        status = '';
       default:
         status = '';
     }
