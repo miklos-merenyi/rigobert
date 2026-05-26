@@ -5,3 +5,8 @@
 * ~~The different colours should have different sounds, from a pentatone scale.~~
 * ~~For the intro play the 'Pictures at an Exhibition' theme highlighting the button~~
 * ~~Store the personal record~~
+* Chosable extra difficulty levels:
+  * The disc is floating around
+  * The disc is spinning
+  * The disc is floating and spinning
+* An animated stripe showing the remaining time from the 5s
