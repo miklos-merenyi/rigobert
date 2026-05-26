@@ -5,12 +5,27 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
 import 'game_colors.dart';
 
-// A-major triad from the pentatonic scale: A4, C#5, E5
-const _kFrequencies = {
-  GameColor.red:   440.0, // A4
-  GameColor.green: 554.4, // C#5
-  GameColor.blue:  659.3, // E5
+// F minor pentatonic, one note per button combination (low → high complexity).
+//   Single:  Red=F4, Green=G4, Blue=Bb4
+//   Pairs:   R+G=C5, R+B=D5, G+B=F5
+//   All:     R+G+B=G5
+const _kComboFreq = <String, double>{
+  '0':     349.23, // F4  — Red
+  '1':     392.00, // G4  — Green
+  '2':     466.16, // Bb4 — Blue
+  '0-1':   523.25, // C5  — Red + Green
+  '0-2':   587.33, // D5  — Red + Blue
+  '1-2':   698.46, // F5  — Green + Blue
+  '0-1-2': 783.99, // G5  — All three
 };
+
+/// Canonical key for a combo set (sorted by enum index).
+String _key(Set<GameColor> combo) {
+  final sorted = combo.toList()..sort((a, b) => a.index - b.index);
+  return sorted.map((c) => c.index.toString()).join('-');
+}
+
+// ── WAV synthesis ──────────────────────────────────────────────────────────
 
 Uint8List _buildWav(double frequency, int durationMs) {
   const sampleRate = 44100;
@@ -29,8 +44,8 @@ Uint8List _buildWav(double frequency, int durationMs) {
   ascii(8, 'WAVE');
   ascii(12, 'fmt ');
   buf.setUint32(16, 16, Endian.little);
-  buf.setUint16(20, 1, Endian.little);           // PCM
-  buf.setUint16(22, 1, Endian.little);           // mono
+  buf.setUint16(20, 1, Endian.little);  // PCM
+  buf.setUint16(22, 1, Endian.little);  // mono
   buf.setUint32(24, sampleRate, Endian.little);
   buf.setUint32(28, sampleRate * 2, Endian.little);
   buf.setUint16(32, 2, Endian.little);
@@ -54,7 +69,6 @@ Uint8List _buildWav(double frequency, int durationMs) {
   return buf.buffer.asUint8List();
 }
 
-// Write bytes to a named temp file; return its path.
 Future<String> _writeTempWav(String name, Uint8List bytes) async {
   final dir = await getTemporaryDirectory();
   final file = File('${dir.path}/$name.wav');
@@ -62,62 +76,60 @@ Future<String> _writeTempWav(String name, Uint8List bytes) async {
   return file.path;
 }
 
+// ── SoundPlayer ────────────────────────────────────────────────────────────
+
 class SoundPlayer {
-  final Map<GameColor, AudioPlayer> _players = {};
-  // Paths to pre-written temp WAV files; null until _init() completes.
-  final Map<GameColor, String?> _tonePaths = {};
+  // Single player for interactive combo sounds (one pitch at a time).
+  final _comboPlayer  = AudioPlayer();
+  // Separate player for the Promenade intro melody.
   final _melodyPlayer = AudioPlayer();
+
+  // Pre-written temp file paths, keyed by combo key string.
+  final Map<String, String?> _comboPaths = {};
   bool _ready = false;
 
   SoundPlayer() {
+    _comboPlayer
+      ..setReleaseMode(ReleaseMode.stop)
+      ..setVolume(0.7);
     _melodyPlayer
       ..setReleaseMode(ReleaseMode.stop)
       ..setVolume(0.75);
-    for (final color in GameColor.values) {
-      _players[color] = AudioPlayer()
-        ..setReleaseMode(ReleaseMode.stop)
-        ..setVolume(0.7);
-      _tonePaths[color] = null;
-    }
     _init();
   }
 
   Future<void> _init() async {
-    for (final color in GameColor.values) {
-      final bytes = _buildWav(_kFrequencies[color]!, 1500);
-      _tonePaths[color] = await _writeTempWav('rb_${color.name}', bytes);
+    for (final entry in _kComboFreq.entries) {
+      final bytes = _buildWav(entry.value, 1500);
+      _comboPaths[entry.key] = await _writeTempWav('rb_${entry.key}', bytes);
     }
     _ready = true;
   }
 
-  Future<void> play(GameColor color) async {
-    final path = _tonePaths[color];
+  /// Play the single pitch assigned to [combo].
+  Future<void> playCombo(Set<GameColor> combo) async {
+    if (combo.isEmpty) return;
+    final path = _comboPaths[_key(combo)];
     if (path == null) return; // still initialising
-    final p = _players[color]!;
-    await p.stop();
-    await p.play(DeviceFileSource(path));
+    await _comboPlayer.stop();
+    await _comboPlayer.play(DeviceFileSource(path));
   }
 
-  Future<void> stop(GameColor color) => _players[color]!.stop();
+  Future<void> stopCombo() => _comboPlayer.stop();
 
-  Future<void> playSet(Set<GameColor> colors) async {
-    for (final c in colors) {
-      await play(c);
-    }
-  }
+  /// Convenience alias used during sequence display.
+  Future<void> playSet(Set<GameColor> colors) => playCombo(colors);
 
   Future<void> stopAll() async {
-    for (final p in _players.values) {
-      await p.stop();
-    }
+    await _comboPlayer.stop();
+    await _melodyPlayer.stop();
   }
 
-  /// Play a melody note at [frequency] Hz for [durationMs] ms.
+  /// Play a melody note at [frequency] Hz (used by the Promenade intro).
   Future<void> playNote(double frequency, int durationMs) async {
     if (!_ready) return;
     final bytes = _buildWav(frequency, durationMs);
-    // Reuse a single melody temp file (overwrite each note).
-    final path = await _writeTempWav('rb_melody', bytes);
+    final path  = await _writeTempWav('rb_melody', bytes);
     await _melodyPlayer.stop();
     await _melodyPlayer.play(DeviceFileSource(path));
   }
@@ -125,9 +137,7 @@ class SoundPlayer {
   Future<void> stopMelody() => _melodyPlayer.stop();
 
   void dispose() {
+    _comboPlayer.dispose();
     _melodyPlayer.dispose();
-    for (final p in _players.values) {
-      p.dispose();
-    }
   }
 }

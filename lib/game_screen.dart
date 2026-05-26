@@ -212,15 +212,21 @@ class _GameScreenState extends State<GameScreen> {
 
   void _onButtonDown(GameColor color) {
     if (_phase != GamePhase.playerInput) return;
-    _startInputTimer(); // reset idle timer on each press
-    _sound.play(color);
-    _handlePressChange(Set<GameColor>.from(_pressedButtons)..add(color));
+    _startInputTimer();
+    final newPressed = Set<GameColor>.from(_pressedButtons)..add(color);
+    _sound.playCombo(newPressed);
+    _handlePressChange(newPressed);
   }
 
   void _onButtonUp(GameColor color) {
     if (_phase != GamePhase.playerInput) return;
-    _sound.stop(color);
-    _handlePressChange(Set<GameColor>.from(_pressedButtons)..remove(color));
+    final newPressed = Set<GameColor>.from(_pressedButtons)..remove(color);
+    if (newPressed.isEmpty) {
+      _sound.stopCombo();
+    } else {
+      _sound.playCombo(newPressed);
+    }
+    _handlePressChange(newPressed);
   }
 
   void _handlePressChange(Set<GameColor> pressed) {
