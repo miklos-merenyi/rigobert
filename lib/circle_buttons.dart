@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'game_colors.dart';
@@ -98,93 +99,185 @@ class _CirclePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = min(size.width, size.height) / 2 - 4;
+    final radius = min(size.width, size.height) / 2 - 6;
     final rect = Rect.fromCircle(center: center, radius: radius);
 
-    // Clip all drawing to the circle boundary
+    // ── Drop shadow (drawn outside the clip) ──────────────────────────────
+    canvas.drawCircle(
+      center + const Offset(0, 6),
+      radius,
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.55)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 18),
+    );
+
+    // ── Clip everything else to the circle ────────────────────────────────
     canvas.save();
     canvas.clipPath(Path()..addOval(rect));
 
-    // When multiple buttons are active, all lit sectors show the blended colour
     final mixedColor = highlighted.isNotEmpty ? mixColors(highlighted) : null;
 
-    // Draw sector fills
-    for (final (color, baseColor, startAngle, _) in _sectors) {
+    for (final (color, baseColor, startAngle, labelAngle) in _sectors) {
       final isLit = highlighted.contains(color);
       final litColor = mixedColor ?? baseColor;
-      final fillColor = isLit
-          ? litColor
-          : Color.fromRGBO(
-              (baseColor.r * 0.15).round(),
-              (baseColor.g * 0.15).round(),
-              (baseColor.b * 0.15).round(),
-              1.0,
-            );
 
       final path = Path()
         ..moveTo(center.dx, center.dy)
         ..arcTo(rect, startAngle, 2 * pi / 3, false)
         ..close();
 
-      canvas.drawPath(path, Paint()..color = fillColor..style = PaintingStyle.fill);
+      // "Peak" – the point on the sector face where a dome would peak.
+      // Placed at 62% of the radius along the sector's centre direction.
+      final peak = center +
+          Offset(cos(labelAngle), sin(labelAngle)) * radius * 0.62;
+
+      // Dim base colour (12% brightness, derived without float-channel issues)
+      final dimColor = Color.lerp(Colors.black, baseColor, 0.12)!;
+      // Mid colour for dome gradient
+      final midColor = Color.lerp(Colors.black, baseColor, 0.42)!;
 
       if (isLit) {
-        // Soft inner glow using the blended colour
+        // ── LIT / PRESSED ──────────────────────────────────────────────────
+
+        // 1. Flat fill with lit (possibly mixed) colour
+        canvas.drawPath(path, Paint()
+          ..color = litColor
+          ..style = PaintingStyle.fill);
+
+        // 2. Inner shadow ring – simulates the button being pressed in
         canvas.drawPath(
           path,
           Paint()
-            ..color = litColor.withValues(alpha: 0.45)
-            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 22)
+            ..shader = ui.Gradient.radial(
+              peak,
+              radius * 1.05,
+              [Colors.transparent, Colors.black.withValues(alpha: 0.45)],
+              [0.25, 1.0],
+            )
+            ..style = PaintingStyle.fill,
+        );
+
+        // 3. Specular highlight – compact bright spot near the peak
+        canvas.drawPath(
+          path,
+          Paint()
+            ..shader = ui.Gradient.radial(
+              peak,
+              radius * 0.28,
+              [
+                Colors.white.withValues(alpha: 0.60),
+                Colors.transparent,
+              ],
+            )
+            ..style = PaintingStyle.fill,
+        );
+
+        // 4. Outer glow (blurred, same colour)
+        canvas.drawPath(
+          path,
+          Paint()
+            ..color = litColor.withValues(alpha: 0.5)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 20)
+            ..style = PaintingStyle.fill,
+        );
+      } else {
+        // ── UNLIT / RAISED ─────────────────────────────────────────────────
+
+        // 1. Dark base
+        canvas.drawPath(path, Paint()
+          ..color = dimColor
+          ..style = PaintingStyle.fill);
+
+        // 2. Dome gradient – brighter at the peak, fades to dim at edges
+        canvas.drawPath(
+          path,
+          Paint()
+            ..shader = ui.Gradient.radial(
+              peak,
+              radius * 0.72,
+              [midColor, dimColor],
+            )
+            ..style = PaintingStyle.fill,
+        );
+
+        // 3. Subtle specular – tiny bright spot suggesting a glossy surface
+        canvas.drawPath(
+          path,
+          Paint()
+            ..shader = ui.Gradient.radial(
+              peak,
+              radius * 0.20,
+              [Colors.white.withValues(alpha: 0.18), Colors.transparent],
+            )
             ..style = PaintingStyle.fill,
         );
       }
     }
 
-    // Dividing radii between sectors
-    // Boundary angles in Flutter canvas radians: 11π/6, π/2, 7π/6
-    final divider = Paint()
-      ..color = Colors.black
-      ..strokeWidth = 3
-      ..style = PaintingStyle.stroke;
+    // ── Groove dividers between sectors ───────────────────────────────────
     for (final a in [11 * pi / 6, pi / 2, 7 * pi / 6]) {
-      canvas.drawLine(
-        center,
-        center + Offset(cos(a) * radius, sin(a) * radius),
-        divider,
-      );
+      final end = center + Offset(cos(a) * radius, sin(a) * radius);
+      // Dark groove centre
+      canvas.drawLine(center, end,
+          Paint()..color = Colors.black..strokeWidth = 4..style = PaintingStyle.stroke);
+      // Light bevel edge offset to one side of the groove
+      final perp = Offset(cos(a + pi / 2), sin(a + pi / 2)) * 2.5;
+      canvas.drawLine(center + perp, end + perp,
+          Paint()
+            ..color = Colors.white.withValues(alpha: 0.12)
+            ..strokeWidth = 1.2
+            ..style = PaintingStyle.stroke);
     }
 
     canvas.restore();
 
-    // Outer ring border
-    canvas.drawCircle(
-      center,
-      radius,
-      Paint()
-        ..color = Colors.white24
-        ..strokeWidth = 2.5
-        ..style = PaintingStyle.stroke,
-    );
+    // ── Outer ring bevel ─────────────────────────────────────────────────
+    // Dark outer shadow stroke
+    canvas.drawCircle(center, radius + 1.5,
+        Paint()
+          ..color = Colors.black.withValues(alpha: 0.60)
+          ..strokeWidth = 4
+          ..style = PaintingStyle.stroke);
+    // Lighter inner highlight stroke
+    canvas.drawCircle(center, radius - 2,
+        Paint()
+          ..color = Colors.white.withValues(alpha: 0.10)
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke);
+    // Thin rim
+    canvas.drawCircle(center, radius,
+        Paint()
+          ..color = Colors.white.withValues(alpha: 0.18)
+          ..strokeWidth = 1
+          ..style = PaintingStyle.stroke);
 
-    // Centre hub
-    canvas.drawCircle(center, radius * 0.13, Paint()..color = Colors.black);
+    // ── Centre hub – small 3-D sphere ─────────────────────────────────────
+    final hubR = radius * 0.13;
+    canvas.drawCircle(center, hubR, Paint()..color = const Color(0xFF1A1A1A));
+    // Specular on hub: off-centre bright spot
     canvas.drawCircle(
-      center,
-      radius * 0.13,
+      center, hubR,
       Paint()
-        ..color = Colors.white24
-        ..strokeWidth = 1.5
-        ..style = PaintingStyle.stroke,
+        ..shader = ui.Gradient.radial(
+          center + Offset(-hubR * 0.30, -hubR * 0.38),
+          hubR * 1.1,
+          [Colors.white.withValues(alpha: 0.40), Colors.transparent],
+        ),
     );
+    canvas.drawCircle(center, hubR,
+        Paint()
+          ..color = Colors.white.withValues(alpha: 0.20)
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke);
 
-    // Labels
+    // ── Labels ────────────────────────────────────────────────────────────
     for (final (color, _, _, labelAngle) in _sectors) {
       final isLit = highlighted.contains(color);
       final pos = center + Offset(cos(labelAngle), sin(labelAngle)) * radius * 0.58;
       final label = switch (color) {
-        GameColor.red => 'RED',
+        GameColor.red   => 'RED',
         GameColor.green => 'GREEN',
-        GameColor.blue => 'BLUE',
+        GameColor.blue  => 'BLUE',
       };
       _paintLabel(canvas, label, pos, radius, isLit ? Colors.white : Colors.white38);
     }

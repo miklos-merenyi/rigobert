@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:path_provider/path_provider.dart';
 import 'game_colors.dart';
 
 // A-major triad from the pentatonic scale: A4, C#5, E5
@@ -36,28 +38,36 @@ Uint8List _buildWav(double frequency, int durationMs) {
   ascii(36, 'data');
   buf.setUint32(40, dataBytes, Endian.little);
 
-  final attackSamples = (sampleRate * 0.010).round(); // 10 ms attack
-  final releaseSamples = (sampleRate * 0.030).round(); // 30 ms release
+  final attackSamples  = (sampleRate * 0.010).round();
+  final releaseSamples = (sampleRate * 0.030).round();
 
   for (int i = 0; i < numSamples; i++) {
-    final attack = i < attackSamples ? i / attackSamples : 1.0;
+    final attack  = i < attackSamples ? i / attackSamples : 1.0;
     final release = i > numSamples - releaseSamples
-        ? (numSamples - i) / releaseSamples
-        : 1.0;
+        ? (numSamples - i) / releaseSamples : 1.0;
     final t = i / sampleRate;
     final v = (sin(2 * pi * frequency * t) * attack * release * 28000)
-        .round()
-        .clamp(-32768, 32767);
+        .round().clamp(-32768, 32767);
     buf.setInt16(44 + i * 2, v, Endian.little);
   }
 
   return buf.buffer.asUint8List();
 }
 
+// Write bytes to a named temp file; return its path.
+Future<String> _writeTempWav(String name, Uint8List bytes) async {
+  final dir = await getTemporaryDirectory();
+  final file = File('${dir.path}/$name.wav');
+  await file.writeAsBytes(bytes, flush: true);
+  return file.path;
+}
+
 class SoundPlayer {
   final Map<GameColor, AudioPlayer> _players = {};
-  final Map<GameColor, Uint8List> _tones = {};
+  // Paths to pre-written temp WAV files; null until _init() completes.
+  final Map<GameColor, String?> _tonePaths = {};
   final _melodyPlayer = AudioPlayer();
+  bool _ready = false;
 
   SoundPlayer() {
     _melodyPlayer
@@ -67,15 +77,25 @@ class SoundPlayer {
       _players[color] = AudioPlayer()
         ..setReleaseMode(ReleaseMode.stop)
         ..setVolume(0.7);
-      // Pre-generate: 1.5 s for interactive presses, trimmed in sequence
-      _tones[color] = _buildWav(_kFrequencies[color]!, 1500);
+      _tonePaths[color] = null;
     }
+    _init();
+  }
+
+  Future<void> _init() async {
+    for (final color in GameColor.values) {
+      final bytes = _buildWav(_kFrequencies[color]!, 1500);
+      _tonePaths[color] = await _writeTempWav('rb_${color.name}', bytes);
+    }
+    _ready = true;
   }
 
   Future<void> play(GameColor color) async {
+    final path = _tonePaths[color];
+    if (path == null) return; // still initialising
     final p = _players[color]!;
     await p.stop();
-    await p.play(BytesSource(_tones[color]!));
+    await p.play(DeviceFileSource(path));
   }
 
   Future<void> stop(GameColor color) => _players[color]!.stop();
@@ -92,11 +112,14 @@ class SoundPlayer {
     }
   }
 
-  /// Play a single melody note at [frequency] Hz for [durationMs] ms.
+  /// Play a melody note at [frequency] Hz for [durationMs] ms.
   Future<void> playNote(double frequency, int durationMs) async {
-    final wav = _buildWav(frequency, durationMs);
+    if (!_ready) return;
+    final bytes = _buildWav(frequency, durationMs);
+    // Reuse a single melody temp file (overwrite each note).
+    final path = await _writeTempWav('rb_melody', bytes);
     await _melodyPlayer.stop();
-    await _melodyPlayer.play(BytesSource(wav));
+    await _melodyPlayer.play(DeviceFileSource(path));
   }
 
   Future<void> stopMelody() => _melodyPlayer.stop();
