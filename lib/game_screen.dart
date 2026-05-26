@@ -10,6 +10,8 @@ import 'sound_player.dart';
 
 enum GamePhase { idle, showingSequence, playerInput, gameOver }
 
+enum Difficulty { normal, floating, spinning, both }
+
 // Pictures at an Exhibition – Promenade theme (A major transposition).
 // Each entry: (frequency_hz, duration_ms, button_highlight).
 // Melody pitches: A=440, B=494, C#=554, D=587, E=659.
@@ -52,7 +54,7 @@ class GameScreen extends StatefulWidget {
   State<GameScreen> createState() => _GameScreenState();
 }
 
-class _GameScreenState extends State<GameScreen> {
+class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   GamePhase _phase = GamePhase.idle;
   final List<Set<GameColor>> _sequence = [];
   int _playerStep = 0;
@@ -68,8 +70,13 @@ class _GameScreenState extends State<GameScreen> {
 
   int _generation = 0;
   final _random = Random();
-  Timer? _inputTimer;
   final _sound = SoundPlayer();
+  Difficulty _difficulty = Difficulty.normal;
+
+  // Drives the time-remaining strip and also fires _gameOver on completion.
+  late final AnimationController _timerCtrl;
+  // Drives disc floating / spinning during gameplay.
+  late final AnimationController _diffCtrl;
 
   static const _windowChannel = MethodChannel('com.rugbart/window');
   bool _secureActive = false;
@@ -86,6 +93,16 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
+    _timerCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 5),
+    )..addStatusListener((s) {
+      if (s == AnimationStatus.completed && mounted) _gameOver();
+    });
+    _diffCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 5),
+    );
     _loadRecord();
     _runIntroLoop(_generation);
   }
@@ -136,18 +153,20 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _startInputTimer() {
-    _inputTimer?.cancel();
-    _inputTimer = Timer(const Duration(seconds: 5), _gameOver);
+    _timerCtrl.stop();
+    _timerCtrl.value = 0.0;
+    _timerCtrl.forward();
   }
 
   void _cancelInputTimer() {
-    _inputTimer?.cancel();
-    _inputTimer = null;
+    _timerCtrl.stop();
+    _timerCtrl.value = 0.0;
   }
 
   @override
   void dispose() {
-    _cancelInputTimer();
+    _timerCtrl.dispose();
+    _diffCtrl.dispose();
     _sound.dispose();
     super.dispose();
   }
@@ -156,6 +175,9 @@ class _GameScreenState extends State<GameScreen> {
     _cancelInputTimer();
     _sound.stopMelody();
     _generation++;
+    if (_difficulty != Difficulty.normal) {
+      _diffCtrl.repeat();
+    }
     setState(() {
       _sequence.clear();
       _score = 0;
@@ -285,6 +307,7 @@ class _GameScreenState extends State<GameScreen> {
 
   void _gameOver() {
     _cancelInputTimer();
+    _diffCtrl.stop();
     _setSecure(false);
     _sound.playFail();
     _saveRecord(_score);
@@ -309,6 +332,7 @@ class _GameScreenState extends State<GameScreen> {
                 _buildHeader(),
                 _buildDisplay(),
                 _buildStatusRow(),
+                _buildTimerStrip(),
                 _buildButtons(),
               ],
             ),
@@ -409,16 +433,45 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Widget _buildButtons() {
+    final disc = CircleButtons(
+      highlighted: _highlightedButtons,
+      enabled: _buttonsEnabled,
+      onDown: _onButtonDown,
+      onUp: _onButtonUp,
+    );
+
     return Expanded(
       flex: 4,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 4, 24, 24),
-        child: CircleButtons(
-          highlighted: _highlightedButtons,
-          enabled: _buttonsEnabled,
-          onDown: _onButtonDown,
-          onUp: _onButtonUp,
-        ),
+        child: _difficulty == Difficulty.normal
+            ? disc
+            : AnimatedBuilder(
+                animation: _diffCtrl,
+                builder: (context, child) {
+                  final t = _diffCtrl.value;
+                  Widget w = child!;
+                  // Spinning: Transform.rotate — Flutter automatically
+                  // de-rotates hit positions so touch detection stays correct.
+                  if (_difficulty == Difficulty.spinning ||
+                      _difficulty == Difficulty.both) {
+                    w = Transform.rotate(angle: t * 2 * pi, child: w);
+                  }
+                  // Floating: Lissajous-figure drift within the padded area.
+                  if (_difficulty == Difficulty.floating ||
+                      _difficulty == Difficulty.both) {
+                    w = Transform.translate(
+                      offset: Offset(
+                        sin(t * 2 * pi) * 32,
+                        sin(t * 2 * pi * 1.4 + pi / 3) * 20,
+                      ),
+                      child: w,
+                    );
+                  }
+                  return w;
+                },
+                child: disc,
+              ),
       ),
     );
   }
@@ -462,7 +515,9 @@ class _GameScreenState extends State<GameScreen> {
               ),
               const SizedBox(height: 28),
               if (!isGameOver) _buildIntroLights(),
-              const SizedBox(height: 28),
+              const SizedBox(height: 20),
+              if (!isGameOver) _buildDifficultySelector(),
+              const SizedBox(height: 24),
               GestureDetector(
                 onTap: _startGame,
                 child: Container(
@@ -515,6 +570,81 @@ class _GameScreenState extends State<GameScreen> {
             boxShadow: isLit
                 ? [BoxShadow(color: base.withValues(alpha: 0.7), blurRadius: 14, spreadRadius: 4)]
                 : [],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildTimerStrip() {
+    return AnimatedBuilder(
+      animation: _timerCtrl,
+      builder: (context, _) {
+        if (_phase != GamePhase.playerInput) return const SizedBox(height: 6);
+        final remaining = (1.0 - _timerCtrl.value).clamp(0.0, 1.0);
+        final color = Color.lerp(Colors.red, Colors.green, remaining)!;
+        return SizedBox(
+          height: 6,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: FractionallySizedBox(
+              widthFactor: remaining,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: color,
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.7),
+                      blurRadius: 8,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDifficultySelector() {
+    const options = [
+      (Difficulty.floating, 'FLOAT'),
+      (Difficulty.spinning, 'SPIN'),
+      (Difficulty.both,     'BOTH'),
+    ];
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: options.map((opt) {
+        final (diff, label) = opt;
+        final selected = _difficulty == diff;
+        return GestureDetector(
+          onTap: () => setState(
+              () => _difficulty = selected ? Difficulty.normal : diff),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            margin: const EdgeInsets.symmetric(horizontal: 5),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            decoration: BoxDecoration(
+              color: selected
+                  ? Colors.white.withValues(alpha: 0.15)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: selected ? Colors.white70 : Colors.white24,
+                width: 1.5,
+              ),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                color: selected ? Colors.white : Colors.white38,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.5,
+              ),
+            ),
           ),
         );
       }).toList(),
