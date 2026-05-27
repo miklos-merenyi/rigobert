@@ -73,6 +73,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   final _sound = SoundPlayer();
   Difficulty _difficulty = Difficulty.normal;
 
+  // Short chord-detection window: queues sound for the final combo only.
+  Timer? _chordTimer;
+
   // Drives the time-remaining strip and also fires _gameOver on completion.
   late final AnimationController _timerCtrl;
   // Ticks at screen refresh rate — used only to drive AnimatedBuilder rebuilds.
@@ -163,10 +166,13 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   void _cancelInputTimer() {
     _timerCtrl.stop();
     _timerCtrl.value = 0.0;
+    _chordTimer?.cancel();
+    _chordTimer = null;
   }
 
   @override
   void dispose() {
+    _chordTimer?.cancel();
     _timerCtrl.dispose();
     _diffCtrl.dispose();
     _sound.dispose();
@@ -253,8 +259,18 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     if (_phase != GamePhase.playerInput) return;
     _startInputTimer();
     final newPressed = Set<GameColor>.from(_pressedButtons)..add(color);
-    _sound.playCombo(newPressed);
     _handlePressChange(newPressed);
+
+    // Chord window: restart the timer on every new press.  When it fires
+    // we play exactly the combo that is held at that moment, so two fingers
+    // landing within 40 ms produce only one (combo) sound, not two.
+    // If all fingers lifted before the window expires, fall back to the
+    // snapshot captured at this down-event.
+    final snapshot = Set.of(newPressed);
+    _chordTimer?.cancel();
+    _chordTimer = Timer(const Duration(milliseconds: 40), () {
+      _sound.playCombo(_pressedButtons.isNotEmpty ? _pressedButtons : snapshot);
+    });
   }
 
   void _onButtonUp(GameColor color) {
