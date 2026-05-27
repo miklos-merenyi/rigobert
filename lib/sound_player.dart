@@ -243,11 +243,17 @@ class SoundPlayer {
     await _failPlayer.stop();
   }
 
+  // iOS caches audio data by file path, so reusing the same name plays the
+  // first note forever. Rotating through 8 slots ensures each play() call
+  // gets a path iOS hasn't seen since at least 8 notes ago.
+  int _melodySlot = 0;
+
   /// Play a melody note at [frequency] Hz (used by the Promenade intro).
   Future<void> playNote(double frequency, int durationMs) async {
     if (!_ready) return;
     final bytes = _buildWav(frequency, durationMs);
-    final path  = await _writeTempWav('rb_melody', bytes);
+    final slot  = _melodySlot++ % 8;
+    final path  = await _writeTempWav('rb_melody_$slot', bytes);
     await _melodyPlayer.stop();
     await _melodyPlayer.play(DeviceFileSource(path));
   }
