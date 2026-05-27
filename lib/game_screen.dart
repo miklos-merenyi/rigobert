@@ -86,6 +86,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   double _floatPhaseY     = 0.0;
   double _spinPhaseOffset = 0.0;
   int    _floatLevel      = 0;
+  // Intro plays exactly once at startup; after it finishes buttons become an instrument.
+  bool _introPlaying    = false;
+  bool _hasPlayedIntro  = false;
 
   @override
   void initState() {
@@ -118,12 +121,16 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _runIntroLoop(int gen) async {
+    if (_hasPlayedIntro) return; // subsequent idle visits → instrument mode immediately
+    _hasPlayedIntro = true;
+    setState(() => _introPlaying = true);
     await Future.delayed(const Duration(milliseconds: 600));
-    while (mounted && _generation == gen && _phase == GamePhase.idle) {
-      await _playIntro(gen);
-      if (!mounted || _generation != gen) return;
-      await Future.delayed(const Duration(seconds: 2));
+    if (!mounted || _generation != gen) {
+      if (mounted) setState(() => _introPlaying = false);
+      return;
     }
+    await _playIntro(gen);
+    if (mounted) setState(() => _introPlaying = false);
   }
 
   Future<void> _playIntro(int gen) async {
@@ -290,7 +297,24 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     }
   }
 
+  // Instrument mode: press buttons freely on the idle screen.
+  void _playIdleNote(GameColor color) {
+    final newPressed = Set<GameColor>.from(_pressedButtons)..add(color);
+    setState(() {
+      _pressedButtons = newPressed;
+      _highlightedButtons = Set.of(newPressed);
+      _displayColor = mixColors(newPressed);
+      _displayOpacity = 0.5;
+    });
+    final snapshot = Set.of(newPressed);
+    _chordTimer?.cancel();
+    _chordTimer = Timer(const Duration(milliseconds: 40), () {
+      _sound.playCombo(_pressedButtons.isNotEmpty ? _pressedButtons : snapshot);
+    });
+  }
+
   void _onButtonDown(GameColor color) {
+    if (_phase == GamePhase.idle) { _playIdleNote(color); return; }
     if (_phase != GamePhase.playerInput) return;
     _startInputTimer();
     final newPressed = Set<GameColor>.from(_pressedButtons)..add(color);
@@ -309,6 +333,15 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   void _onButtonUp(GameColor color) {
+    if (_phase == GamePhase.idle) {
+      final newPressed = Set<GameColor>.from(_pressedButtons)..remove(color);
+      setState(() {
+        _pressedButtons = newPressed;
+        _highlightedButtons = Set.of(newPressed);
+        if (newPressed.isEmpty) _displayOpacity = 0.0;
+      });
+      return;
+    }
     if (_phase != GamePhase.playerInput) return;
     final newPressed = Set<GameColor>.from(_pressedButtons)..remove(color);
     // No sound on release — only down-events queue notes.
@@ -400,7 +433,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     setState(() => _phase = GamePhase.gameOver);
   }
 
-  bool get _buttonsEnabled => _phase == GamePhase.playerInput;
+  bool get _buttonsEnabled =>
+      _phase == GamePhase.playerInput ||
+      (_phase == GamePhase.idle && !_introPlaying);
   bool get _isFloating =>
       _difficulty == Difficulty.floating || _difficulty == Difficulty.both;
   bool get _isSpinning =>
@@ -674,24 +709,30 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       return Container(color: const Color(0xED222222), child: Center(child: innerContent));
     }
 
-    // Idle: fade to transparent so the button disc is visible at the bottom.
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          stops: [0.0, 0.52, 0.80],
-          colors: [
-            Color(0xF2000000),
-            Color(0xE0000000),
-            Colors.transparent,
-          ],
+    // Idle: gradient is decorative only — touches pass through to the buttons.
+    return Stack(
+      children: [
+        IgnorePointer(
+          child: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                stops: [0.0, 0.52, 0.80],
+                colors: [
+                  Color(0xF2000000),
+                  Color(0xE0000000),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
         ),
-      ),
-      child: Align(
-        alignment: Alignment(0, -0.35),
-        child: innerContent,
-      ),
+        Align(
+          alignment: const Alignment(0, -0.52),
+          child: innerContent,
+        ),
+      ],
     );
   }
 
