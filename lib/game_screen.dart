@@ -17,10 +17,10 @@ enum Difficulty { normal, floating, spinning, both }
 // Pitches:  F4=349.23 G4=392.00 Bb4=466.16 C5=523.25 D5=587.33 F5=698.46
 // Buttons:  F→Red  G→Green  Bb→Blue  C→{R,G}  D→{R,B}  F'→{G,B}
 // Phrase:   G  F  Bb  [C F']  D  [C F']  D  Bb  C  G  F
-// Full beat = 480ms note + 80ms gap = 560ms ≈ 107 BPM.
-// Half beat = 200ms note + 80ms gap; two halves = 560ms = one full beat.
-const _introBpm     = 480; // ms – full beat note duration
-const _introBpmHalf = 200; // ms – half beat (pickup); 2×(200+80)=560=1 beat
+// Full beat = 550ms note + 10ms gap = 560ms ≈ 107 BPM (legato: 10ms silence).
+// Half beat = 270ms note + 10ms gap; two halves = 560ms = one full beat.
+const _introBpm     = 550; // ms – full beat note duration
+const _introBpmHalf = 270; // ms – half beat (pickup); 2×(270+10)=560=1 beat
 final _kPromenade = [
   (392.00, _introBpm,     <GameColor>{GameColor.green}),                    // G
   (349.23, _introBpm,     <GameColor>{GameColor.red}),                      // F
@@ -150,7 +150,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         _highlightedButtons = {};
         _displayOpacity = 0.0;
       });
-      await Future.delayed(const Duration(milliseconds: 80));
+      await Future.delayed(const Duration(milliseconds: 10));
     }
   }
 
@@ -260,9 +260,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   void _onButtonUp(GameColor color) {
     if (_phase != GamePhase.playerInput) return;
     final newPressed = Set<GameColor>.from(_pressedButtons)..remove(color);
-    if (newPressed.isEmpty) {
-      _sound.stopCombo();
-    } else {
+    // Don't stop the current note — let it ring out (or the queue drain).
+    // Only queue a new combo if buttons are still held.
+    if (newPressed.isNotEmpty) {
       _sound.playCombo(newPressed);
     }
     _handlePressChange(newPressed);

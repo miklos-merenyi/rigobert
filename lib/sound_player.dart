@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
@@ -53,15 +54,17 @@ Uint8List _buildWav(double frequency, int durationMs) {
   ascii(36, 'data');
   buf.setUint32(40, dataBytes, Endian.little);
 
-  final attackSamples  = (sampleRate * 0.010).round();
-  final releaseSamples = (sampleRate * 0.030).round();
+  // 20 ms fade-in, 40 ms fade-out — reduces click artefacts at note boundaries.
+  final attackSamples  = (sampleRate * 0.020).round();
+  final releaseSamples = (sampleRate * 0.040).round();
 
   for (int i = 0; i < numSamples; i++) {
     final attack  = i < attackSamples ? i / attackSamples : 1.0;
     final release = i > numSamples - releaseSamples
         ? (numSamples - i) / releaseSamples : 1.0;
     final t = i / sampleRate;
-    final v = (sin(2 * pi * frequency * t) * attack * release * 28000)
+    // Amplitude 24000 (~73 % of max) leaves headroom against mixer saturation.
+    final v = (sin(2 * pi * frequency * t) * attack * release * 24000)
         .round().clamp(-32768, 32767);
     buf.setInt16(44 + i * 2, v, Endian.little);
   }
@@ -149,6 +152,13 @@ class SoundPlayer {
   String? _failPath;
   bool _ready = false;
 
+  // Each combo touch gets a 400 ms slot; the WAV rings out naturally
+  // after the slot ends if nothing is queued.
+  static const _slotMs = 400;
+  final _comboQueue   = <Set<GameColor>>[];
+  Timer? _comboSlotTimer;
+  bool _comboActive   = false;
+
   SoundPlayer() {
     _comboPlayer
       ..setReleaseMode(ReleaseMode.stop)
@@ -171,16 +181,48 @@ class SoundPlayer {
     _ready = true;
   }
 
-  /// Play the single pitch assigned to [combo].
+  /// Queue [combo] for playback. If nothing is playing the note starts
+  /// immediately; otherwise it is appended (max queue depth: 3).
   Future<void> playCombo(Set<GameColor> combo) async {
     if (combo.isEmpty) return;
-    final path = _comboPaths[_key(combo)];
-    if (path == null) return; // still initialising
-    await _comboPlayer.stop();
-    await _comboPlayer.play(DeviceFileSource(path));
+    if (_comboActive) {
+      if (_comboQueue.length < 3) _comboQueue.add(Set.of(combo));
+      return;
+    }
+    _startComboSlot(combo);
   }
 
-  Future<void> stopCombo() => _comboPlayer.stop();
+  void _startComboSlot(Set<GameColor> combo) {
+    final path = _comboPaths[_key(combo)];
+    if (path == null) return;
+    _comboActive = true;
+    // Fire-and-forget: stop current then play next.
+    _comboPlayer.stop().then((_) => _comboPlayer.play(DeviceFileSource(path)));
+    _comboSlotTimer = Timer(
+      const Duration(milliseconds: _slotMs),
+      _onComboSlotEnd,
+    );
+  }
+
+  void _onComboSlotEnd() {
+    _comboActive = false;
+    if (_comboQueue.isNotEmpty) {
+      _startComboSlot(_comboQueue.removeAt(0));
+    }
+    // Queue empty: WAV continues to ring out naturally until its end.
+  }
+
+  void _cancelComboQueue() {
+    _comboSlotTimer?.cancel();
+    _comboSlotTimer = null;
+    _comboQueue.clear();
+    _comboActive = false;
+  }
+
+  Future<void> stopCombo() async {
+    _cancelComboQueue();
+    await _comboPlayer.stop();
+  }
 
   /// Convenience alias used during sequence display.
   Future<void> playSet(Set<GameColor> colors) => playCombo(colors);
@@ -188,12 +230,14 @@ class SoundPlayer {
   Future<void> playFail() async {
     final path = _failPath;
     if (path == null) return;
-    await _comboPlayer.stop(); // silence any held note first
+    _cancelComboQueue();
+    await _comboPlayer.stop();
     await _failPlayer.stop();
     await _failPlayer.play(DeviceFileSource(path));
   }
 
   Future<void> stopAll() async {
+    _cancelComboQueue();
     await _comboPlayer.stop();
     await _melodyPlayer.stop();
     await _failPlayer.stop();
@@ -211,6 +255,7 @@ class SoundPlayer {
   Future<void> stopMelody() => _melodyPlayer.stop();
 
   void dispose() {
+    _cancelComboQueue();
     _comboPlayer.dispose();
     _melodyPlayer.dispose();
     _failPlayer.dispose();
