@@ -171,6 +171,24 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  void _goToIdle() {
+    _cancelInputTimer();
+    _diffCtrl.stop();
+    _sound.stopAll();
+    _generation++;
+    setState(() {
+      _phase = GamePhase.idle;
+      _sequence.clear();
+      _score = 0;
+      _pressedButtons = {};
+      _highlightedButtons = {};
+      _stepMatched = false;
+      _hasPressedThisStep = false;
+      _displayOpacity = 0.0;
+    });
+    _runIntroLoop(_generation);
+  }
+
   void _startGame() {
     _cancelInputTimer();
     _sound.stopMelody();
@@ -341,26 +359,35 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   bool get _buttonsEnabled => _phase == GamePhase.playerInput;
+  bool get _isFloating =>
+      _difficulty == Difficulty.floating || _difficulty == Difficulty.both;
+  bool get _isSpinning =>
+      _difficulty == Difficulty.spinning || _difficulty == Difficulty.both;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
-        child: Stack(
-          children: [
-            Column(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return Stack(
               children: [
-                _buildHeader(),
-                _buildDisplay(),
-                _buildStatusRow(),
-                _buildTimerStrip(),
-                _buildButtons(),
+                Column(
+                  children: [
+                    _buildHeader(),
+                    _buildDisplay(),
+                    _buildStatusRow(),
+                    _buildButtons(),
+                    _buildTimerStrip(),
+                  ],
+                ),
+                if (_isFloating) _buildFloatingDisc(constraints),
+                if (_phase == GamePhase.idle) _buildOverlay(isGameOver: false),
+                if (_phase == GamePhase.gameOver) _buildOverlay(isGameOver: true),
               ],
-            ),
-            if (_phase == GamePhase.idle) _buildOverlay(isGameOver: false),
-            if (_phase == GamePhase.gameOver) _buildOverlay(isGameOver: true),
-          ],
+            );
+          },
         ),
       ),
     );
@@ -457,6 +484,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildButtons() {
+    // When floating the disc lives in the root Stack via _buildFloatingDisc().
+    if (_isFloating) {
+      return const Expanded(flex: 4, child: SizedBox());
+    }
+
     final disc = CircleButtons(
       highlighted: _highlightedButtons,
       enabled: _buttonsEnabled,
@@ -468,35 +500,58 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       flex: 4,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 4, 24, 24),
-        child: _difficulty == Difficulty.normal
-            ? disc
-            : AnimatedBuilder(
+        child: _isSpinning
+            ? AnimatedBuilder(
                 animation: _diffCtrl,
                 builder: (context, child) {
-                  final t = _diffCtrl.value;
-                  Widget w = child!;
-                  // Spinning: Transform.rotate — Flutter automatically
-                  // de-rotates hit positions so touch detection stays correct.
-                  if (_difficulty == Difficulty.spinning ||
-                      _difficulty == Difficulty.both) {
-                    w = Transform.rotate(angle: t * 2 * pi, child: w);
-                  }
-                  // Floating: Lissajous-figure drift within the padded area.
-                  if (_difficulty == Difficulty.floating ||
-                      _difficulty == Difficulty.both) {
-                    w = Transform.translate(
-                      offset: Offset(
-                        sin(t * 2 * pi) * 32,
-                        sin(t * 2 * pi * 1.4 + pi / 3) * 20,
-                      ),
-                      child: w,
-                    );
-                  }
-                  return w;
+                  return Transform.rotate(
+                    angle: _diffCtrl.value * 2 * pi,
+                    child: child,
+                  );
                 },
                 child: disc,
-              ),
+              )
+            : disc,
       ),
+    );
+  }
+
+  Widget _buildFloatingDisc(BoxConstraints constraints) {
+    final sw = constraints.maxWidth;
+    final sh = constraints.maxHeight;
+    final discSize = min(sw * 0.72, sh * 0.45);
+    final hRange = (sw - discSize) / 2 - 16;
+    final vRange = (sh - discSize) / 2 - 16;
+
+    final disc = CircleButtons(
+      highlighted: _highlightedButtons,
+      enabled: _buttonsEnabled,
+      onDown: _onButtonDown,
+      onUp: _onButtonUp,
+    );
+
+    return AnimatedBuilder(
+      animation: _diffCtrl,
+      builder: (context, child) {
+        final t = _diffCtrl.value;
+        final dx = sin(t * 2 * pi) * hRange;
+        final dy = sin(t * 2 * pi * 1.4 + pi / 3) * vRange;
+        final cx = sw / 2 + dx;
+        final cy = sh / 2 + dy;
+
+        Widget w = child!;
+        if (_isSpinning) {
+          w = Transform.rotate(angle: t * 2 * pi, child: w);
+        }
+        return Positioned(
+          left: cx - discSize / 2,
+          top: cy - discSize / 2,
+          width: discSize,
+          height: discSize,
+          child: w,
+        );
+      },
+      child: disc,
     );
   }
 
@@ -543,7 +598,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               if (!isGameOver) _buildDifficultySelector(),
               const SizedBox(height: 24),
               GestureDetector(
-                onTap: _startGame,
+                onTap: isGameOver ? _goToIdle : _startGame,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 52, vertical: 18),
                   decoration: BoxDecoration(
