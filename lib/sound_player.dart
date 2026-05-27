@@ -174,7 +174,9 @@ class SoundPlayer {
 
   Future<void> _init() async {
     for (final entry in _kComboFreq.entries) {
-      final bytes = _buildWav(entry.value, 1500);
+      // 750 ms matches the note window used during sequence presentation,
+      // so player-input sounds feel identical in length to the playback ones.
+      final bytes = _buildWav(entry.value, 750);
       _comboPaths[entry.key] = await _writeTempWav('rb_${entry.key}', bytes);
     }
     _failPath = await _writeTempWav('rb_fail', _buildFailSound());
