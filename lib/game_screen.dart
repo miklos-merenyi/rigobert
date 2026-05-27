@@ -255,17 +255,27 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       _sound.playSet(step);
 
       if (isLast) {
-        // Enable input the moment the last note begins.
+        // Enable input the moment the last note begins (highlight is already
+        // set from the setState above so the player sees it light up).
         if (!mounted || _generation != gen) return;
         setState(() {
           _phase = GamePhase.playerInput;
           _playerStep = 0;
           _hasPressedThisStep = false;
           _stepMatched = false;
-          _highlightedButtons = {};
-          _displayOpacity = 0.0;
         });
         _startInputTimer();
+        // Clear the last-note highlight after a short visual window, but only
+        // if the player hasn't already started pressing (their press takes over).
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (!mounted || _generation != gen) return;
+          if (_pressedButtons.isEmpty) {
+            setState(() {
+              _highlightedButtons = {};
+              _displayOpacity = 0.0;
+            });
+          }
+        });
         return;
       }
 
