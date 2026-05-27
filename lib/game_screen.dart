@@ -205,6 +205,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _generation++;
     final gen = _generation;
     setState(() {
+      _phase = GamePhase.showingSequence; // hide overlay immediately on tap
       _sequence.clear();
       _score = 0;
       _pressedButtons = {};
@@ -653,22 +654,24 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       ('E', Colors.orange,       0.12),
       ('R', Color(0xFFFF4444),  -0.06),
     ];
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        for (final (char, color, angle) in letters)
-          Transform.rotate(
-            angle: angle,
-            child: Text(char, style: style.copyWith(color: color)),
-          ),
-      ],
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          for (final (char, color, angle) in letters)
+            Transform.rotate(
+              angle: angle,
+              child: Text(char, style: style.copyWith(color: color)),
+            ),
+        ],
+      ),
     );
   }
 
   Widget _buildOverlayTitle() {
     const style = TextStyle(fontSize: 44, fontWeight: FontWeight.w900);
-    // (letter, color, rotation-radians)  — zero = upright, non-zero = askew
     const letters = [
       ('R', Color(0xFFFF3333),  0.00),
       ('U', Colors.orange,     -0.10),
@@ -683,16 +686,19 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       ('Y', Color(0xFFFF00FF),  0.09),
       ('S', Color(0xFF00FFFF), -0.07),
     ];
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        for (final (char, color, angle) in letters)
-          Transform.rotate(
-            angle: angle,
-            child: Text(char, style: style.copyWith(color: color)),
-          ),
-      ],
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          for (final (char, color, angle) in letters)
+            Transform.rotate(
+              angle: angle,
+              child: Text(char, style: style.copyWith(color: color)),
+            ),
+        ],
+      ),
     );
   }
 
