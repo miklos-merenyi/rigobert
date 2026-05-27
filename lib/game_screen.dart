@@ -422,13 +422,13 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         _displayColor = mixColors(combo);
         _displayOpacity = 0.75;
       });
-      await Future.delayed(const Duration(milliseconds: 160));
+      await Future.delayed(const Duration(milliseconds: 120));
       if (!mounted || _generation != gen) return;
       setState(() {
         _highlightedButtons = {};
         _displayOpacity = 0.0;
       });
-      await Future.delayed(const Duration(milliseconds: 90));
+      await Future.delayed(const Duration(milliseconds: 60));
     }
     if (!mounted || _generation != gen) return;
     setState(() => _phase = GamePhase.gameOver);

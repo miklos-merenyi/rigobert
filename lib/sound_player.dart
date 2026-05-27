@@ -194,7 +194,7 @@ class SoundPlayer {
     }
     _failPath = await _writeTempWav('rb_fail', _buildFailSound());
     for (int i = 0; i < _kR2D2Freqs.length; i++) {
-      _r2d2Paths[i] = await _writeTempWav('rb_r2d2_$i', _buildWav(_kR2D2Freqs[i], 120));
+      _r2d2Paths[i] = await _writeTempWav('rb_r2d2_$i', _buildWav(_kR2D2Freqs[i], 90));
     }
     _ready = true;
   }
