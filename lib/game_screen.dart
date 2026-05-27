@@ -81,6 +81,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   late final AnimationController _diffCtrl;
   // Monotonically increasing clock for smooth, wrap-free floating/spinning.
   final _floatClock = Stopwatch()..start();
+  // Phase offsets corrected each time floatFreq/spinFreq changes with the level.
+  double _floatPhaseX     = 0.0;
+  double _floatPhaseY     = 0.0;
+  double _spinPhaseOffset = 0.0;
+  int    _floatLevel      = 0;
 
   @override
   void initState() {
@@ -179,6 +184,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       _stepMatched = false;
       _hasPressedThisStep = false;
       _displayOpacity = 0.0;
+      _floatPhaseX = 0.0;
+      _floatPhaseY = 0.0;
+      _spinPhaseOffset = 0.0;
+      _floatLevel = 0;
     });
     _runIntroLoop(_generation);
   }
@@ -195,14 +204,34 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       _stepMatched = false;
       _hasPressedThisStep = false;
       _displayOpacity = 0.0;
+      _floatPhaseX = 0.0;
+      _floatPhaseY = 0.0;
+      _spinPhaseOffset = 0.0;
+      _floatLevel = 0;
     });
     _addNextStep();
+  }
+
+  // Called after _sequence.length changes so position formulas stay continuous.
+  void _updateFloatPhase() {
+    final secs     = _floatClock.elapsed.inMilliseconds / 1000.0;
+    final newLevel = _sequence.length;
+    if (newLevel == _floatLevel) return;
+    final oldFloat = 0.04 + _floatLevel * 0.012;
+    final newFloat = 0.04 + newLevel   * 0.012;
+    _floatPhaseX += (oldFloat - newFloat) * secs * 2 * pi;
+    _floatPhaseY += (oldFloat - newFloat) * secs * 1.4 * 2 * pi;
+    final oldSpin = 0.10 + _floatLevel * 0.025;
+    final newSpin = 0.10 + newLevel   * 0.025;
+    _spinPhaseOffset += (oldSpin - newSpin) * secs * 2 * pi;
+    _floatLevel = newLevel;
   }
 
   void _addNextStep() {
     _sequence.add(
       Set.of(_allCombinations[_random.nextInt(_allCombinations.length)]),
     );
+    _updateFloatPhase();
     _showSequence(_generation);
   }
 
@@ -223,15 +252,15 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       _sound.playSet(step);
 
       if (isLast) {
-        // Enable input the moment the last note begins — the player does not
-        // have to wait for it to finish.  Highlight stays on as a visual cue
-        // and updates naturally when the player starts pressing.
+        // Enable input the moment the last note begins.
         if (!mounted || _generation != gen) return;
         setState(() {
           _phase = GamePhase.playerInput;
           _playerStep = 0;
           _hasPressedThisStep = false;
           _stepMatched = false;
+          _highlightedButtons = {};
+          _displayOpacity = 0.0;
         });
         _startInputTimer();
         return;
@@ -508,7 +537,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   final secs = _floatClock.elapsed.inMilliseconds / 1000.0;
                   final freq = 0.10 + _sequence.length * 0.025;
                   return Transform.rotate(
-                    angle: secs * freq * 2 * pi,
+                    angle: secs * freq * 2 * pi + _spinPhaseOffset,
                     child: child,
                   );
                 },
@@ -542,13 +571,13 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         // Float frequency grows with level: 25-second cycle at level 0,
         // shortening by ~0.8 s per additional level.
         final floatFreq = 0.04 + _sequence.length * 0.012;
-        final dx = sin(secs * floatFreq * 2 * pi) * hRange;
-        final dy = sin(secs * floatFreq * 1.4 * 2 * pi + pi / 3) * vRange;
+        final dx = sin(secs * floatFreq * 2 * pi + _floatPhaseX) * hRange;
+        final dy = sin(secs * floatFreq * 1.4 * 2 * pi + pi / 3 + _floatPhaseY) * vRange;
 
         Widget w = child!;
         if (_isSpinning) {
           final spinFreq = 0.10 + _sequence.length * 0.025;
-          w = Transform.rotate(angle: secs * spinFreq * 2 * pi, child: w);
+          w = Transform.rotate(angle: secs * spinFreq * 2 * pi + _spinPhaseOffset, child: w);
         }
         return Positioned(
           left: sw / 2 + dx - discSize / 2,
