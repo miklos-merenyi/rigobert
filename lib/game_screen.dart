@@ -191,6 +191,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   void _startGame() {
     _cancelInputTimer();
     _sound.stopMelody();
+    _setSecure(true);
     _generation++;
     setState(() {
       _sequence.clear();
@@ -266,9 +267,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   void _handlePressChange(Set<GameColor> pressed) {
-    // Prevent accidental 3-finger screenshots on Android when all buttons held
-    _setSecure(pressed.length == GameColor.values.length);
-
     if (_stepMatched) {
       setState(() {
         _pressedButtons = pressed;
@@ -374,6 +372,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                     _buildDisplay(),
                     _buildStatusRow(),
                     _buildButtons(),
+                    _buildLevelDots(),
                     _buildTimerStrip(),
                   ],
                 ),
@@ -647,6 +646,30 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           ),
         );
       }).toList(),
+    );
+  }
+
+  Widget _buildLevelDots() {
+    final count = _sequence.length;
+    if (count == 0) return const SizedBox(height: 8);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        spacing: 5,
+        runSpacing: 4,
+        children: List.generate(
+          count,
+          (_) => Container(
+            width: 7,
+            height: 7,
+            decoration: const BoxDecoration(
+              color: Colors.white54,
+              shape: BoxShape.circle,
+            ),
+          ),
+        ),
+      ),
     );
   }
 
