@@ -6,6 +6,12 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
 import 'game_colors.dart';
 
+// Chaotic pitches for the game-over R2-D2 flash (16 slots, 120 ms each).
+const _kR2D2Freqs = <double>[
+  330, 440, 550, 660, 880, 1100, 1320, 1760,
+  2200, 2640, 990, 1650, 2090, 770, 1540, 3000,
+];
+
 // F minor pentatonic, one note per button combination (low → high complexity).
 //   Single:  Red=F4, Green=G4, Blue=Bb4
 //   Pairs:   R+G=C5, R+B=D5, G+B=F5
@@ -146,10 +152,14 @@ class SoundPlayer {
   final _melodyPlayer = AudioPlayer();
   // Dedicated player for the fail buzzer.
   final _failPlayer   = AudioPlayer();
+  // Dedicated player for game-over R2-D2 chatter.
+  final _r2d2Player   = AudioPlayer();
 
   // Pre-written temp file paths, keyed by combo key string.
   final Map<String, String?> _comboPaths = {};
   String? _failPath;
+  final List<String?> _r2d2Paths = List.filled(16, null);
+  final _r2d2Rng = Random();
   bool _ready = false;
 
   // Each combo touch gets a 400 ms slot; the WAV rings out naturally
@@ -169,6 +179,9 @@ class SoundPlayer {
     _failPlayer
       ..setReleaseMode(ReleaseMode.stop)
       ..setVolume(0.85);
+    _r2d2Player
+      ..setReleaseMode(ReleaseMode.stop)
+      ..setVolume(0.75);
     _init();
   }
 
@@ -180,6 +193,9 @@ class SoundPlayer {
       _comboPaths[entry.key] = await _writeTempWav('rb_${entry.key}', bytes);
     }
     _failPath = await _writeTempWav('rb_fail', _buildFailSound());
+    for (int i = 0; i < _kR2D2Freqs.length; i++) {
+      _r2d2Paths[i] = await _writeTempWav('rb_r2d2_$i', _buildWav(_kR2D2Freqs[i], 120));
+    }
     _ready = true;
   }
 
@@ -238,11 +254,20 @@ class SoundPlayer {
     await _failPlayer.play(DeviceFileSource(path));
   }
 
+  /// Plays one random beep from the R2-D2 pool (fire-and-forget).
+  Future<void> playR2D2Beep() async {
+    final path = _r2d2Paths[_r2d2Rng.nextInt(_r2d2Paths.length)];
+    if (path == null) return;
+    await _r2d2Player.stop();
+    _r2d2Player.play(DeviceFileSource(path));
+  }
+
   Future<void> stopAll() async {
     _cancelComboQueue();
     await _comboPlayer.stop();
     await _melodyPlayer.stop();
     await _failPlayer.stop();
+    await _r2d2Player.stop();
   }
 
   // iOS caches audio data by file path, so reusing the same name plays the
@@ -267,5 +292,6 @@ class SoundPlayer {
     _comboPlayer.dispose();
     _melodyPlayer.dispose();
     _failPlayer.dispose();
+    _r2d2Player.dispose();
   }
 }

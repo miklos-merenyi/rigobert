@@ -416,6 +416,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     final deadline = DateTime.now().add(const Duration(milliseconds: 2400));
     while (mounted && _generation == gen && DateTime.now().isBefore(deadline)) {
       final combo = Set.of(_allCombinations[_random.nextInt(_allCombinations.length)]);
+      _sound.playR2D2Beep();
       setState(() {
         _highlightedButtons = combo;
         _displayColor = mixColors(combo);
@@ -639,8 +640,37 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     );
   }
 
+  Widget _buildOverlayTitle() {
+    const style = TextStyle(fontSize: 44, fontWeight: FontWeight.w900);
+    // (letter, color, rotation-radians)  — zero = upright, non-zero = askew
+    const letters = [
+      ('R', Color(0xFFFF3333),  0.00),
+      ('U', Colors.orange,     -0.10),
+      ('G', Color(0xFF33FF44),  0.00),
+      ('B', Color(0xFF3366FF),  0.13),
+      ('A', Colors.yellow,     -0.08),
+      ('R', Color(0xFFFF3333),  0.00),
+      ('T', Colors.purpleAccent, 0.11),
+      (' ', Colors.white,       0.00),
+      ('S', Color(0xFF00FFFF), -0.12),
+      ('A', Colors.yellow,      0.00),
+      ('Y', Color(0xFFFF00FF),  0.09),
+      ('S', Color(0xFF00FFFF), -0.07),
+    ];
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        for (final (char, color, angle) in letters)
+          Transform.rotate(
+            angle: angle,
+            child: Text(char, style: style.copyWith(color: color)),
+          ),
+      ],
+    );
+  }
+
   Widget _buildOverlay({required bool isGameOver}) {
-    final title = isGameOver ? 'Game Over' : 'Rugbart Says';
     final isNewRecord = isGameOver && _score > 0 && _score >= _personalRecord;
     final scoreLines = isGameOver
         ? 'You reached level ${_sequence.length}\nScore: $_score'
@@ -654,15 +684,18 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            title,
-                style: const TextStyle(
-                  fontSize: 38,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                  letterSpacing: 2,
-                ),
+          if (isGameOver)
+            const Text(
+              'Game Over',
+              style: TextStyle(
+                fontSize: 38,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+                letterSpacing: 2,
               ),
+            )
+          else
+            _buildOverlayTitle(),
               const SizedBox(height: 20),
               Text(
                 subtitle,
