@@ -640,6 +640,32 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     );
   }
 
+  Widget _buildGameOverTitle() {
+    const style = TextStyle(fontSize: 46, fontWeight: FontWeight.w900);
+    const letters = [
+      ('G', Color(0xFFFF3333),   0.09),
+      ('A', Colors.orange,      -0.07),
+      ('M', Color(0xFFFF6600),   0.00),
+      ('E', Colors.yellow,      -0.11),
+      (' ', Colors.white,        0.00),
+      ('O', Color(0xFFFF3333),   0.08),
+      ('V', Colors.purpleAccent,-0.09),
+      ('E', Colors.orange,       0.12),
+      ('R', Color(0xFFFF4444),  -0.06),
+    ];
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        for (final (char, color, angle) in letters)
+          Transform.rotate(
+            angle: angle,
+            child: Text(char, style: style.copyWith(color: color)),
+          ),
+      ],
+    );
+  }
+
   Widget _buildOverlayTitle() {
     const style = TextStyle(fontSize: 44, fontWeight: FontWeight.w900);
     // (letter, color, rotation-radians)  — zero = upright, non-zero = askew
@@ -684,18 +710,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (isGameOver)
-            const Text(
-              'Game Over',
-              style: TextStyle(
-                fontSize: 38,
-                fontWeight: FontWeight.w900,
-                color: Colors.white,
-                letterSpacing: 2,
-              ),
-            )
-          else
-            _buildOverlayTitle(),
+          if (isGameOver) _buildGameOverTitle() else _buildOverlayTitle(),
               const SizedBox(height: 20),
               Text(
                 subtitle,
