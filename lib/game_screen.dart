@@ -225,15 +225,32 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     setState(() => _phase = GamePhase.showingSequence);
     await Future.delayed(const Duration(milliseconds: 600));
 
-    for (final step in _sequence) {
+    for (int i = 0; i < _sequence.length; i++) {
+      final step = _sequence[i];
+      final isLast = i == _sequence.length - 1;
       if (!mounted || _generation != gen) return;
-      // Light up both display panel and circle buttons
       setState(() {
         _displayColor = mixColors(step);
         _displayOpacity = 1.0;
         _highlightedButtons = Set.of(step);
       });
       _sound.playSet(step);
+
+      if (isLast) {
+        // Enable input the moment the last note begins — the player does not
+        // have to wait for it to finish.  Highlight stays on as a visual cue
+        // and updates naturally when the player starts pressing.
+        if (!mounted || _generation != gen) return;
+        setState(() {
+          _phase = GamePhase.playerInput;
+          _playerStep = 0;
+          _hasPressedThisStep = false;
+          _stepMatched = false;
+        });
+        _startInputTimer();
+        return;
+      }
+
       await Future.delayed(const Duration(milliseconds: 750));
       if (!mounted || _generation != gen) return;
       _sound.stopAll();
@@ -243,16 +260,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       });
       await Future.delayed(const Duration(milliseconds: 350));
     }
-
-    if (!mounted || _generation != gen) return;
-    await Future.delayed(const Duration(milliseconds: 200));
-    setState(() {
-      _phase = GamePhase.playerInput;
-      _playerStep = 0;
-      _hasPressedThisStep = false;
-      _stepMatched = false;
-    });
-    _startInputTimer();
   }
 
   void _onButtonDown(GameColor color) {
