@@ -396,7 +396,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: const Color(0xFF222222),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -658,7 +658,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         );
 
     if (isGameOver) {
-      return Container(color: Colors.black87, child: Center(child: innerContent));
+      return Container(color: const Color(0xED222222), child: Center(child: innerContent));
     }
 
     // Idle: fade to transparent so the button disc is visible at the bottom.
