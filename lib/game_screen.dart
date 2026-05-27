@@ -102,7 +102,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _diffCtrl = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 5),
-    );
+    )..repeat(); // runs continuously — never reset so position is always smooth
     _loadRecord();
     _runIntroLoop(_generation);
   }
@@ -173,7 +173,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   void _goToIdle() {
     _cancelInputTimer();
-    _diffCtrl.stop();
     _sound.stopAll();
     _generation++;
     setState(() {
@@ -193,9 +192,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _cancelInputTimer();
     _sound.stopMelody();
     _generation++;
-    if (_difficulty != Difficulty.normal) {
-      _diffCtrl.repeat();
-    }
     setState(() {
       _sequence.clear();
       _score = 0;
@@ -325,7 +321,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   void _gameOver() {
     _cancelInputTimer();
-    _diffCtrl.stop();
     _setSecure(false);
     _sound.playFail();
     _saveRecord(_score);
