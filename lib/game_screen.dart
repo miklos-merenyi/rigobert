@@ -12,26 +12,29 @@ enum GamePhase { idle, showingSequence, playerInput, gameOverFlash, gameOver }
 
 enum Difficulty { normal, floating, spinning, both }
 
-// Opening melody – F minor pentatonic.
+// Opening melody – from intro.mid (Pictures at an Exhibition, 104 BPM).
 // Each entry: (frequency_hz, duration_ms, button_highlight).
 // Pitches:  F4=349.23 G4=392.00 Bb4=466.16 C5=523.25 D5=587.33 F5=698.46
 // Buttons:  F→Red  G→Green  Bb→Blue  C→{R,G}  D→{R,B}  F'→{G,B}
-// Phrase:   F  G  Bb  [C F']  D  [C F]  D  Bb  C  F  G
-const _introBpm = 360; // ms per quarter note
+// Phrase:   G  F  Bb  [C F']  D  [C F']  D  Bb  C  G  F
+// Full beat = 480ms note + 80ms gap = 560ms ≈ 107 BPM.
+// Half beat = 200ms note + 80ms gap; two halves = 560ms = one full beat.
+const _introBpm     = 480; // ms – full beat note duration
+const _introBpmHalf = 200; // ms – half beat (pickup); 2×(200+80)=560=1 beat
 final _kPromenade = [
-  (349.23, _introBpm,       <GameColor>{GameColor.red}),                    // F
-  (392.00, _introBpm,       <GameColor>{GameColor.green}),                   // G
-  (466.16, _introBpm,       <GameColor>{GameColor.blue}),                    // Bb
-  (523.25, _introBpm ~/ 2,  <GameColor>{GameColor.red, GameColor.green}),    // C (short)
-  (698.46, _introBpm,       <GameColor>{GameColor.green, GameColor.blue}),   // F'
-  (587.33, _introBpm,       <GameColor>{GameColor.red, GameColor.blue}),     // D
-  (523.25, _introBpm ~/ 2,  <GameColor>{GameColor.red, GameColor.green}),    // C (short)
-  (349.23, _introBpm,       <GameColor>{GameColor.red}),                     // F
-  (587.33, _introBpm,       <GameColor>{GameColor.red, GameColor.blue}),     // D
-  (466.16, _introBpm,       <GameColor>{GameColor.blue}),                    // Bb
-  (523.25, _introBpm,       <GameColor>{GameColor.red, GameColor.green}),    // C
-  (349.23, _introBpm,       <GameColor>{GameColor.red}),                     // F
-  (392.00, _introBpm * 2,   <GameColor>{GameColor.green}),                   // G (long)
+  (392.00, _introBpm,     <GameColor>{GameColor.green}),                    // G
+  (349.23, _introBpm,     <GameColor>{GameColor.red}),                      // F
+  (466.16, _introBpm,     <GameColor>{GameColor.blue}),                     // Bb
+  (523.25, _introBpmHalf, <GameColor>{GameColor.red, GameColor.green}),     // C (half)
+  (698.46, _introBpmHalf, <GameColor>{GameColor.green, GameColor.blue}),    // F' (half)
+  (587.33, _introBpm,     <GameColor>{GameColor.red, GameColor.blue}),      // D
+  (523.25, _introBpmHalf, <GameColor>{GameColor.red, GameColor.green}),     // C (half)
+  (698.46, _introBpmHalf, <GameColor>{GameColor.green, GameColor.blue}),    // F' (half)
+  (587.33, _introBpm,     <GameColor>{GameColor.red, GameColor.blue}),      // D
+  (466.16, _introBpm,     <GameColor>{GameColor.blue}),                     // Bb
+  (523.25, _introBpm,     <GameColor>{GameColor.red, GameColor.green}),     // C
+  (392.00, _introBpm,     <GameColor>{GameColor.green}),                    // G
+  (349.23, _introBpm,     <GameColor>{GameColor.red}),                      // F
 ];
 
 const _allCombinations = [
