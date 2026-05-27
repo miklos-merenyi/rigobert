@@ -192,10 +192,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _runIntroLoop(_generation);
   }
 
-  void _startGame() {
+  Future<void> _startGame() async {
     _cancelInputTimer();
     _sound.stopMelody();
     _generation++;
+    final gen = _generation;
     setState(() {
       _sequence.clear();
       _score = 0;
@@ -209,6 +210,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       _spinPhaseOffset = 0.0;
       _floatLevel = 0;
     });
+    await Future.delayed(const Duration(seconds: 1));
+    if (!mounted || _generation != gen) return;
     _addNextStep();
   }
 
