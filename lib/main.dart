@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:no_screenshot/no_screenshot.dart';
 import 'game_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await NoScreenshot.instance.screenshotOff();
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   runApp(const RugbartSaysApp());
 }

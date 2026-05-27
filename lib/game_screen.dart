@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'circle_buttons.dart';
 import 'game_colors.dart';
@@ -82,18 +81,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   late final AnimationController _diffCtrl;
   // Monotonically increasing clock for smooth, wrap-free floating/spinning.
   final _floatClock = Stopwatch()..start();
-
-  static const _windowChannel = MethodChannel('com.rugbart/window');
-  bool _secureActive = false;
-
-  Future<void> _setSecure(bool secure) async {
-    if (defaultTargetPlatform != TargetPlatform.android) return;
-    if (secure == _secureActive) return;
-    _secureActive = secure;
-    try {
-      await _windowChannel.invokeMethod<void>('setSecure', {'secure': secure});
-    } catch (_) {}
-  }
 
   @override
   void initState() {
@@ -199,7 +186,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   void _startGame() {
     _cancelInputTimer();
     _sound.stopMelody();
-    _setSecure(true);
     _generation++;
     setState(() {
       _sequence.clear();
@@ -341,7 +327,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   void _gameOver() {
     _cancelInputTimer();
-    _setSecure(false);
     _sound.playFail();
     _saveRecord(_score);
     setState(() {
