@@ -75,8 +75,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   // Drives the time-remaining strip and also fires _gameOver on completion.
   late final AnimationController _timerCtrl;
-  // Drives disc floating / spinning during gameplay.
+  // Ticks at screen refresh rate — used only to drive AnimatedBuilder rebuilds.
   late final AnimationController _diffCtrl;
+  // Monotonically increasing clock for smooth, wrap-free floating/spinning.
+  final _floatClock = Stopwatch()..start();
 
   static const _windowChannel = MethodChannel('com.rugbart/window');
   bool _secureActive = false;
@@ -498,8 +500,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             ? AnimatedBuilder(
                 animation: _diffCtrl,
                 builder: (context, child) {
+                  final secs = _floatClock.elapsed.inMilliseconds / 1000.0;
+                  final freq = 0.10 + _sequence.length * 0.025;
                   return Transform.rotate(
-                    angle: _diffCtrl.value * 2 * pi,
+                    angle: secs * freq * 2 * pi,
                     child: child,
                   );
                 },
@@ -527,19 +531,23 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     return AnimatedBuilder(
       animation: _diffCtrl,
       builder: (context, child) {
-        final t = _diffCtrl.value;
-        final dx = sin(t * 2 * pi) * hRange;
-        final dy = sin(t * 2 * pi * 1.4 + pi / 3) * vRange;
-        final cx = sw / 2 + dx;
-        final cy = sh / 2 + dy;
+        // Use monotonic elapsed seconds so position is always continuous —
+        // no jump when the controller loops 0→1→0.
+        final secs = _floatClock.elapsed.inMilliseconds / 1000.0;
+        // Float frequency grows with level: 25-second cycle at level 0,
+        // shortening by ~0.8 s per additional level.
+        final floatFreq = 0.04 + _sequence.length * 0.012;
+        final dx = sin(secs * floatFreq * 2 * pi) * hRange;
+        final dy = sin(secs * floatFreq * 1.4 * 2 * pi + pi / 3) * vRange;
 
         Widget w = child!;
         if (_isSpinning) {
-          w = Transform.rotate(angle: t * 2 * pi, child: w);
+          final spinFreq = 0.10 + _sequence.length * 0.025;
+          w = Transform.rotate(angle: secs * spinFreq * 2 * pi, child: w);
         }
         return Positioned(
-          left: cx - discSize / 2,
-          top: cy - discSize / 2,
+          left: sw / 2 + dx - discSize / 2,
+          top:  sh / 2 + dy - discSize / 2,
           width: discSize,
           height: discSize,
           child: w,
