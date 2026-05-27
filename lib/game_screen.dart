@@ -260,11 +260,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   void _onButtonUp(GameColor color) {
     if (_phase != GamePhase.playerInput) return;
     final newPressed = Set<GameColor>.from(_pressedButtons)..remove(color);
-    // Don't stop the current note — let it ring out (or the queue drain).
-    // Only queue a new combo if buttons are still held.
-    if (newPressed.isNotEmpty) {
-      _sound.playCombo(newPressed);
-    }
+    // No sound on release — only down-events queue notes.
+    // The current note rings out naturally.
     _handlePressChange(newPressed);
   }
 

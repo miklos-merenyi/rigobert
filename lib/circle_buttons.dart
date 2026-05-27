@@ -138,45 +138,57 @@ class _CirclePainter extends CustomPainter {
 
       if (isLit) {
         // ── LIT / PRESSED ──────────────────────────────────────────────────
+        // Use the same dome-gradient layers as the unlit state, but derived
+        // from litColor so the 3-D shape is visible even when brightly lit.
+        final litDim = Color.lerp(Colors.black, litColor, 0.38)!;
+        final litMid = Color.lerp(Colors.black, litColor, 0.82)!;
 
-        // 1. Flat fill with lit (possibly mixed) colour
+        // 1. Dark base fill
         canvas.drawPath(path, Paint()
-          ..color = litColor
+          ..color = litDim
           ..style = PaintingStyle.fill);
 
-        // 2. Inner shadow ring – simulates the button being pressed in
+        // 2. Dome gradient – bright at peak, fades to dark edges
+        canvas.drawPath(
+          path,
+          Paint()
+            ..shader = ui.Gradient.radial(
+              peak, radius * 0.72,
+              [litMid, litDim],
+            )
+            ..style = PaintingStyle.fill,
+        );
+
+        // 3. Inner shadow ring – pressed-in edge darkening
         canvas.drawPath(
           path,
           Paint()
             ..shader = ui.Gradient.radial(
               peak,
               radius * 1.05,
-              [Colors.transparent, Colors.black.withValues(alpha: 0.45)],
+              [Colors.transparent, Colors.black.withValues(alpha: 0.35)],
               [0.25, 1.0],
             )
             ..style = PaintingStyle.fill,
         );
 
-        // 3. Specular highlight – compact bright spot near the peak
+        // 4. Specular highlight – bright spot at the dome peak
         canvas.drawPath(
           path,
           Paint()
             ..shader = ui.Gradient.radial(
               peak,
               radius * 0.28,
-              [
-                Colors.white.withValues(alpha: 0.60),
-                Colors.transparent,
-              ],
+              [Colors.white.withValues(alpha: 0.60), Colors.transparent],
             )
             ..style = PaintingStyle.fill,
         );
 
-        // 4. Outer glow (blurred, same colour)
+        // 5. Outer glow (blurred, same colour)
         canvas.drawPath(
           path,
           Paint()
-            ..color = litColor.withValues(alpha: 0.5)
+            ..color = litColor.withValues(alpha: 0.50)
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 20)
             ..style = PaintingStyle.fill,
         );
