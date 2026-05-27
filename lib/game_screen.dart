@@ -12,29 +12,26 @@ enum GamePhase { idle, showingSequence, playerInput, gameOverFlash, gameOver }
 
 enum Difficulty { normal, floating, spinning, both }
 
-// Pictures at an Exhibition – Promenade theme (A major transposition).
+// Opening melody – F minor pentatonic.
 // Each entry: (frequency_hz, duration_ms, button_highlight).
-// Melody pitches: A=440, B=494, C#=554, D=587, E=659.
-// Button mappings: A→Red, B→{R,G}, C#→Green, D→{G,B}, E→Blue.
+// Pitches:  F4=349.23 G4=392.00 Bb4=466.16 C5=523.25 D5=587.33 F5=698.46
+// Buttons:  F→Red  G→Green  Bb→Blue  C→{R,G}  D→{R,B}  F'→{G,B}
+// Phrase:   F  G  Bb  [C F']  D  [C F]  D  Bb  C  F  G
 const _introBpm = 360; // ms per quarter note
 final _kPromenade = [
-  (440.0, _introBpm,     <GameColor>{GameColor.red}),
-  (440.0, _introBpm,     <GameColor>{GameColor.red}),
-  (440.0, _introBpm,     <GameColor>{GameColor.red}),
-  (440.0, _introBpm,     <GameColor>{GameColor.red}),
-  (440.0, _introBpm,     <GameColor>{GameColor.red}),
-  (494.0, _introBpm,     <GameColor>{GameColor.red, GameColor.green}),
-  (554.0, _introBpm,     <GameColor>{GameColor.green}),
-  (440.0, _introBpm * 2, <GameColor>{GameColor.red}),
-  (0.0,   200,           <GameColor>{}),
-  (554.0, _introBpm,     <GameColor>{GameColor.green}),
-  (494.0, _introBpm,     <GameColor>{GameColor.red, GameColor.green}),
-  (440.0, _introBpm,     <GameColor>{GameColor.red}),
-  (554.0, _introBpm,     <GameColor>{GameColor.green}),
-  (587.0, _introBpm,     <GameColor>{GameColor.green, GameColor.blue}),
-  (554.0, _introBpm,     <GameColor>{GameColor.green}),
-  (494.0, _introBpm,     <GameColor>{GameColor.red, GameColor.green}),
-  (440.0, _introBpm * 2, <GameColor>{GameColor.red}),
+  (349.23, _introBpm,       <GameColor>{GameColor.red}),                    // F
+  (392.00, _introBpm,       <GameColor>{GameColor.green}),                   // G
+  (466.16, _introBpm,       <GameColor>{GameColor.blue}),                    // Bb
+  (523.25, _introBpm ~/ 2,  <GameColor>{GameColor.red, GameColor.green}),    // C (short)
+  (698.46, _introBpm,       <GameColor>{GameColor.green, GameColor.blue}),   // F'
+  (587.33, _introBpm,       <GameColor>{GameColor.red, GameColor.blue}),     // D
+  (523.25, _introBpm ~/ 2,  <GameColor>{GameColor.red, GameColor.green}),    // C (short)
+  (349.23, _introBpm,       <GameColor>{GameColor.red}),                     // F
+  (587.33, _introBpm,       <GameColor>{GameColor.red, GameColor.blue}),     // D
+  (466.16, _introBpm,       <GameColor>{GameColor.blue}),                    // Bb
+  (523.25, _introBpm,       <GameColor>{GameColor.red, GameColor.green}),    // C
+  (349.23, _introBpm,       <GameColor>{GameColor.red}),                     // F
+  (392.00, _introBpm * 2,   <GameColor>{GameColor.green}),                   // G (long)
 ];
 
 const _allCombinations = [
@@ -559,16 +556,13 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     final subtitle = scoreLines;
     final buttonLabel = isGameOver ? 'TRY AGAIN' : 'START';
 
-    return Container(
-      color: Colors.black87,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                title,
+    final innerContent = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            title,
                 style: const TextStyle(
                   fontSize: 38,
                   fontWeight: FontWeight.w900,
@@ -616,7 +610,29 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               ],
             ],
           ),
+        );
+
+    if (isGameOver) {
+      return Container(color: Colors.black87, child: Center(child: innerContent));
+    }
+
+    // Idle: fade to transparent so the button disc is visible at the bottom.
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          stops: [0.0, 0.52, 0.80],
+          colors: [
+            Color(0xF2000000),
+            Color(0xE0000000),
+            Colors.transparent,
+          ],
         ),
+      ),
+      child: Align(
+        alignment: Alignment(0, -0.35),
+        child: innerContent,
       ),
     );
   }
