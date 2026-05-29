@@ -16,9 +16,20 @@ Set the target audience (all ages, no children-directed content needed)
 In-App Products
 
 Go to Monetise → In-app products → Managed products
-Create unlock_hard as a non-consumable at your chosen price
 Create tip_small, tip_medium, tip_large as consumables
 Publish each product (they need to be active before you can test them)
+
+Play Games Leaderboards
+
+Enable the Google Play Games Services API for your app in the Play Console (Grow → Play Games Services → Setup and management → Configuration)
+Create four leaderboards under Leaderboards:
+  • STILL  → copy the resulting ID into leaderboard_service.dart as _kAndroidStill
+  • FLOAT  → _kAndroidFloat
+  • SPIN   → _kAndroidSpin
+  • BOTH   → _kAndroidBoth
+Add your SHA-1 fingerprint(s) under the linked app (debug + release)
+Publish the Play Games configuration (it must be published before scores can be submitted in production)
+The games_services plugin needs no extra AndroidManifest.xml entries — the plugin handles the metadata tag automatically
 
 Store listing
 
