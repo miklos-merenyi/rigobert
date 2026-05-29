@@ -17,7 +17,7 @@ const _kComboAsset = <String, String>{
 };
 
 // Melody note frequencies → combo asset (same pitches, reuse the files).
-const _kMelodyAsset = <double, String>{
+final _kMelodyAsset = <double, String>{
   349.23: 'sounds/combo_0.mp3',
   392.00: 'sounds/combo_1.mp3',
   466.16: 'sounds/combo_2.mp3',
