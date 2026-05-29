@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:no_screenshot/no_screenshot.dart';
 import 'game_screen.dart';
+import 'purchase_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await NoScreenshot.instance.screenshotOff();
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  await PurchaseService().init();
   runApp(const RigobertSaysApp());
 }
 

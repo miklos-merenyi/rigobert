@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'circle_buttons.dart';
 import 'game_colors.dart';
+import 'purchase_service.dart';
 import 'sound_player.dart';
 
 enum GamePhase { idle, showingSequence, playerInput, gameOverFlash, gameOver }
@@ -218,7 +219,36 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _runIntroLoop(_generation);
   }
 
+  // ── Paywall & tip dialogs ──────────────────────────────────────────────────
+
+  Future<void> _showPaywall() async {
+    await showDialog<void>(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (_) => const _PaywallDialog(),
+    );
+  }
+
+  Future<void> _openTipJar() => showTipJar(context);
+
+  bool get _isHardMode =>
+      _difficulty == Difficulty.spinning || _difficulty == Difficulty.both;
+
+  /// Returns false and shows the paywall if the player can't play this mode.
+  Future<bool> _checkHardModeAccess() async {
+    if (!_isHardMode) return true;
+    final ps = PurchaseService();
+    if (ps.unlocked) return true;
+    if (ps.hasTrialsLeft) {
+      await ps.consumeTrial();
+      return true;
+    }
+    if (mounted) await _showPaywall();
+    return false;
+  }
+
   Future<void> _startGame() async {
+    if (!await _checkHardModeAccess()) return;
     _cancelInputTimer();
     _sound.stopMelody();
     _generation++;
@@ -399,6 +429,14 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         _displayOpacity = 1.0;
         _score++;
       });
+      return;
+    }
+
+    // If any pressed button is not in the required set, it's immediately wrong.
+    // Don't wait for release — this prevents a wrong+right chord from slipping
+    // through when the wrong finger lifts before the check runs.
+    if (pressed.isNotEmpty && !required.containsAll(pressed)) {
+      _gameOver();
       return;
     }
 
@@ -796,6 +834,20 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               if (isGameOver) ...[
                 const SizedBox(height: 24),
                 _buildColorLegend(),
+                const SizedBox(height: 20),
+                GestureDetector(
+                  onTap: _openTipJar,
+                  child: const Text(
+                    '☕  Support the dev',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.white38,
+                      decoration: TextDecoration.underline,
+                      decorationColor: Colors.white24,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
               ],
               if (!isGameOver) ...[
                 const SizedBox(height: 20),
@@ -941,39 +993,94 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       (Difficulty.spinning, 'SPIN'),
       (Difficulty.both,     'BOTH'),
     ];
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: options.map((opt) {
-        final (diff, label) = opt;
-        final selected = _difficulty == diff;
-        return GestureDetector(
-          onTap: () => setState(() => _difficulty = diff),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            margin: const EdgeInsets.symmetric(horizontal: 5),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-            decoration: BoxDecoration(
-              color: selected
-                  ? Colors.white.withValues(alpha: 0.15)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: selected ? Colors.white70 : Colors.white24,
-                width: 1.5,
-              ),
+    final ps = PurchaseService();
+    return ListenableBuilder(
+      listenable: ps,
+      builder: (context, _) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: options.map((opt) {
+                final (diff, label) = opt;
+                final selected  = _difficulty == diff;
+                final isHard    = diff == Difficulty.spinning || diff == Difficulty.both;
+                final locked    = isHard && !ps.unlocked && !ps.hasTrialsLeft;
+                return GestureDetector(
+                  onTap: () {
+                    if (locked) {
+                      _showPaywall();
+                    } else {
+                      setState(() => _difficulty = diff);
+                    }
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    margin: const EdgeInsets.symmetric(horizontal: 5),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? Colors.white.withValues(alpha: 0.15)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: selected ? Colors.white70 : Colors.white24,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (locked)
+                          const Padding(
+                            padding: EdgeInsets.only(right: 4),
+                            child: Icon(Icons.lock, size: 10, color: Colors.white38),
+                          ),
+                        Text(
+                          label,
+                          style: TextStyle(
+                            color: locked
+                                ? Colors.white24
+                                : selected ? Colors.white : Colors.white38,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
             ),
-            child: Text(
-              label,
-              style: TextStyle(
-                color: selected ? Colors.white : Colors.white38,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.5,
+            // Show trial count when hard modes are partially used but not unlocked
+            if (!ps.unlocked && ps.trialsLeft > 0 && ps.trialsUsed > 0) ...[
+              const SizedBox(height: 6),
+              Text(
+                '${ps.trialsLeft} free ${ps.trialsLeft == 1 ? 'go' : 'goes'} left on SPIN / BOTH',
+                style: const TextStyle(fontSize: 10, color: Colors.white30, letterSpacing: 0.5),
               ),
-            ),
-          ),
+            ],
+            if (!ps.unlocked && ps.trialsLeft == 0) ...[
+              const SizedBox(height: 6),
+              GestureDetector(
+                onTap: _showPaywall,
+                child: const Text(
+                  'Unlock SPIN & BOTH →',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.white38,
+                    decoration: TextDecoration.underline,
+                    decorationColor: Colors.white24,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ],
+          ],
         );
-      }).toList(),
+      },
     );
   }
 
@@ -1015,6 +1122,208 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+Future<void> showTipJar(BuildContext context) => showDialog<void>(
+  context: context,
+  barrierColor: Colors.black87,
+  builder: (_) => const _TipJarDialog(),
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Paywall dialog
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PaywallDialog extends StatelessWidget {
+  const _PaywallDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    final ps = PurchaseService();
+    final product = ps.product(kProductUnlock);
+    final price = product?.price ?? '—';
+
+    return Dialog(
+      backgroundColor: const Color(0xFF1A1A2A),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
+        child: ListenableBuilder(
+          listenable: ps,
+          builder: (context, _) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Crown icon hint
+              const Text('👑', style: TextStyle(fontSize: 44)),
+              const SizedBox(height: 16),
+              const Text(
+                'UNLOCK HARD MODES',
+                style: TextStyle(
+                  fontSize: 14, fontWeight: FontWeight.w800,
+                  color: Colors.white, letterSpacing: 2,
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Get unlimited access to SPIN and BOTH — where the disc moves and the challenge grows.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: Colors.white60, height: 1.6),
+              ),
+              const SizedBox(height: 24),
+              // Unlock button
+              GestureDetector(
+                onTap: ps.loadingPurchase ? null : () => ps.buyUnlock(),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(36),
+                    border: Border.all(color: Colors.white70, width: 1.5),
+                  ),
+                  child: Center(
+                    child: ps.loadingPurchase
+                        ? const SizedBox(
+                            width: 20, height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white54))
+                        : Text(
+                            'Unlock  $price',
+                            style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w800,
+                              color: Colors.white, letterSpacing: 2,
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Restore
+              TextButton(
+                onPressed: () => ps.restorePurchases(),
+                child: const Text(
+                  'Restore purchase',
+                  style: TextStyle(fontSize: 12, color: Colors.white38),
+                ),
+              ),
+              const SizedBox(height: 4),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text(
+                  'Not now',
+                  style: TextStyle(fontSize: 12, color: Colors.white24),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tip jar dialog
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _TipJarDialog extends StatelessWidget {
+  const _TipJarDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    final ps = PurchaseService();
+    final tips = [
+      (kProductTipS, '☕', 'Small tip'),
+      (kProductTipM, '🎩', 'Medium tip'),
+      (kProductTipL, '👑', 'Royal tip'),
+    ];
+
+    return Dialog(
+      backgroundColor: const Color(0xFF1A1A2A),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
+        child: ListenableBuilder(
+          listenable: ps,
+          builder: (context, _) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('☕', style: TextStyle(fontSize: 44)),
+              const SizedBox(height: 16),
+              const Text(
+                'SUPPORT THE DEV',
+                style: TextStyle(
+                  fontSize: 14, fontWeight: FontWeight.w800,
+                  color: Colors.white, letterSpacing: 2,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Rigobert Says is free and ad-free. If you enjoy it, a tip means a lot.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: Colors.white60, height: 1.6),
+              ),
+              const SizedBox(height: 24),
+              ...tips.map((t) {
+                final (id, emoji, label) = t;
+                final product = ps.product(id);
+                final price = product?.price ?? '—';
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: GestureDetector(
+                    onTap: ps.loadingPurchase ? null : () async {
+                      await ps.buyTip(id);
+                      if (context.mounted) Navigator.of(context).pop();
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.07),
+                        borderRadius: BorderRadius.circular(36),
+                        border: Border.all(color: Colors.white24, width: 1.5),
+                      ),
+                      child: Row(
+                        children: [
+                          Text(emoji, style: const TextStyle(fontSize: 20)),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              label,
+                              style: const TextStyle(
+                                fontSize: 14, color: Colors.white70,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            price,
+                            style: const TextStyle(
+                              fontSize: 14, color: Colors.white54,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text(
+                  'Maybe later',
+                  style: TextStyle(fontSize: 12, color: Colors.white24),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // How To Play page
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1050,7 +1359,7 @@ class HowToPlayPage extends StatelessWidget {
             style: const TextStyle(color: Colors.white70, fontSize: 15, height: 1.7),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
+              children: [
                 _HowToSection(
                   icon: Icons.lightbulb_outline,
                   iconColor: Color(0xFFFF3333),
@@ -1102,6 +1411,22 @@ class HowToPlayPage extends StatelessWidget {
                   title: 'Scoring',
                   body:
                     'You score points for every correct sequence. Your personal record is saved between sessions — can you beat it?',
+                ),
+                SizedBox(height: 32),
+                Center(
+                  child: GestureDetector(
+                    onTap: () => showTipJar(context),
+                    child: const Text(
+                      '☕  Support the dev',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.white38,
+                        decoration: TextDecoration.underline,
+                        decorationColor: Colors.white24,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ),
                 ),
                 SizedBox(height: 40),
               ],
