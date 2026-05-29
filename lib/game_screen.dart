@@ -573,7 +573,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF2B2B3D),
+      backgroundColor: const Color(0xFF33334A),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -649,10 +649,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             child: discWidget,
           ),
 
-        // ── title (always on top of disc) ─────────────────────────────────
+        // ── title — centred vertically in the upper half ──────────────────
         Positioned(
-          top: 0, left: 0, right: 0,
-          child: _buildHeader(),
+          top: sh * 0.08,
+          left: 16, right: 16,
+          child: Center(child: _buildIdleTitle()),
         ),
 
         // ── bottom controls ───────────────────────────────────────────────
@@ -663,15 +664,15 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               gradient: LinearGradient(
                 begin: Alignment.bottomCenter,
                 end: Alignment.topCenter,
-                stops: const [0.0, 0.7, 1.0],
+                stops: const [0.0, 0.65, 1.0],
                 colors: [
-                  const Color(0xFF2B2B3D),
-                  const Color(0xCC2B2B3D),
+                  const Color(0xFF33334A),
+                  const Color(0xDD33334A),
                   Colors.transparent,
                 ],
               ),
             ),
-            padding: const EdgeInsets.fromLTRB(32, 32, 32, 24),
+            padding: const EdgeInsets.fromLTRB(32, 36, 32, 24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -684,8 +685,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   Text(
                     '$modeName mode record: $modeRecord',
                     style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.white38,
+                      fontSize: 13,
+                      color: Colors.white60,
                       letterSpacing: 0.5,
                     ),
                   ),
@@ -734,9 +735,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     );
   }
 
+  // Compact header used during gameplay (top of screen)
   Widget _buildHeader() {
     final base = GoogleFonts.nunito(fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: 4);
-    // R=red, I=orange, G=green, O=yellow, B=blue, E=purple, R=red, T=white · S=cyan, A=yellow, Y=magenta, S=cyan
     final letters = [
       ('R', const Color(0xFFFF3333)),
       ('I', Colors.orange),
@@ -761,6 +762,40 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               TextSpan(text: char, style: base.copyWith(color: color)),
           ],
         ),
+      ),
+    );
+  }
+
+  // Large skewed title for the opening/idle screen
+  Widget _buildIdleTitle() {
+    final base = GoogleFonts.nunito(fontSize: 36, fontWeight: FontWeight.w900, letterSpacing: 3);
+    const letters = [
+      ('R', Color(0xFFFF3333),   0.07),
+      ('I', Colors.orange,      -0.09),
+      ('G', Color(0xFF33FF33),   0.05),
+      ('O', Colors.yellow,       0.11),
+      ('B', Color(0xFF3366FF),  -0.06),
+      ('E', Colors.purpleAccent, 0.08),
+      ('R', Color(0xFFFF3333),  -0.04),
+      ('T', Colors.white,        0.10),
+      (' ', Colors.white,        0.00),
+      ('S', Color(0xFF00FFFF),  -0.08),
+      ('A', Colors.yellow,       0.06),
+      ('Y', Color(0xFFFF00FF),  -0.10),
+      ('S', Color(0xFF00FFFF),   0.05),
+    ];
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          for (final (char, color, angle) in letters)
+            Transform.rotate(
+              angle: angle,
+              child: Text(char, style: base.copyWith(color: color)),
+            ),
+        ],
       ),
     );
   }
@@ -1205,7 +1240,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               const SizedBox(height: 6),
               Text(
                 '${ps.trialsLeft} free ${ps.trialsLeft == 1 ? 'go' : 'goes'} left on SPIN / BOTH',
-                style: const TextStyle(fontSize: 10, color: Colors.white30, letterSpacing: 0.5),
+                style: const TextStyle(fontSize: 11, color: Colors.white54, letterSpacing: 0.5),
               ),
             ],
             if (!ps.unlocked && ps.trialsLeft == 0) ...[
@@ -1479,7 +1514,7 @@ class HowToPlayPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF111111),
+      backgroundColor: const Color(0xFF1E1E2E),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,

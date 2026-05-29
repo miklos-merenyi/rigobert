@@ -60,17 +60,19 @@ Uint8List _buildWav(double frequency, int durationMs) {
   ascii(36, 'data');
   buf.setUint32(40, dataBytes, Endian.little);
 
-  // 20 ms fade-in, 40 ms fade-out — reduces click artefacts at note boundaries.
-  final attackSamples  = (sampleRate * 0.020).round();
-  final releaseSamples = (sampleRate * 0.040).round();
+  // 40 ms fade-in, 80 ms fade-out — softer ramps reduce click artefacts and
+  // give headroom when players briefly overlap during rapid note changes.
+  final attackSamples  = (sampleRate * 0.040).round();
+  final releaseSamples = (sampleRate * 0.080).round();
 
   for (int i = 0; i < numSamples; i++) {
     final attack  = i < attackSamples ? i / attackSamples : 1.0;
     final release = i > numSamples - releaseSamples
         ? (numSamples - i) / releaseSamples : 1.0;
     final t = i / sampleRate;
-    // Amplitude 24000 (~73 % of max) leaves headroom against mixer saturation.
-    final v = (sin(2 * pi * frequency * t) * attack * release * 24000)
+    // Amplitude 16000 (~49 % of max) keeps two overlapping players well below
+    // clipping even without OS-level limiting.
+    final v = (sin(2 * pi * frequency * t) * attack * release * 16000)
         .round().clamp(-32768, 32767);
     buf.setInt16(44 + i * 2, v, Endian.little);
   }
@@ -129,7 +131,7 @@ Uint8List _buildFailSound() {
     // Mix in white noise (15 %)
     s = s * 0.85 + (rng.nextDouble() * 2 - 1) * 0.15;
 
-    final v = (s * env * 22000).round().clamp(-32768, 32767);
+    final v = (s * env * 14000).round().clamp(-32768, 32767);
     buf.setInt16(44 + i * 2, v, Endian.little);
   }
 
@@ -172,16 +174,16 @@ class SoundPlayer {
   SoundPlayer() {
     _comboPlayer
       ..setReleaseMode(ReleaseMode.stop)
-      ..setVolume(0.7);
+      ..setVolume(0.9);
     _melodyPlayer
       ..setReleaseMode(ReleaseMode.stop)
-      ..setVolume(0.75);
+      ..setVolume(0.9);
     _failPlayer
       ..setReleaseMode(ReleaseMode.stop)
-      ..setVolume(0.85);
+      ..setVolume(0.9);
     _r2d2Player
       ..setReleaseMode(ReleaseMode.stop)
-      ..setVolume(0.75);
+      ..setVolume(0.9);
     _init();
   }
 
