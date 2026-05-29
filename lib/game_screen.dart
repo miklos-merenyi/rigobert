@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -115,6 +116,67 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     )..repeat(); // runs continuously — never reset so position is always smooth
     _loadRecord();
     _runIntroLoop(_generation);
+    if (Platform.isAndroid) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowScreenshotTip());
+    }
+  }
+
+  Future<void> _maybeShowScreenshotTip() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool('screenshot_tip_shown') ?? false) return;
+    await prefs.setBool('screenshot_tip_shown', true);
+    if (!mounted) return;
+    await Future.delayed(const Duration(seconds: 2)); // let intro settle
+    if (!mounted) return;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A2A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(28, 24, 28, 36),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('💡  Tip', style: TextStyle(
+              fontSize: 12, fontWeight: FontWeight.w800,
+              color: Colors.white38, letterSpacing: 2,
+            )),
+            const SizedBox(height: 12),
+            const Text(
+              'Some Android devices take a screenshot when you swipe with three fingers — which can accidentally interrupt the game.',
+              style: TextStyle(fontSize: 15, color: Colors.white70, height: 1.6),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'You can disable this in Settings → Advanced features → Motions and gestures → Palm swipe to capture (or similar, depending on your device).',
+              style: TextStyle(fontSize: 13, color: Colors.white38, height: 1.6),
+            ),
+            const SizedBox(height: 20),
+            GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(36),
+                  border: Border.all(color: Colors.white24, width: 1.5),
+                ),
+                child: const Center(
+                  child: Text('Got it', style: TextStyle(
+                    color: Colors.white70, fontWeight: FontWeight.w700,
+                    letterSpacing: 1.5,
+                  )),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   static String _recordKey(Difficulty d) => 'record_${d.name}';
