@@ -66,6 +66,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   bool _stepMatched = false;
   bool _hasPressedThisStep = false;
   int _score = 0;
+  bool _recordSubmitted = false;
   // Per-mode personal records keyed by Difficulty
   final Map<Difficulty, int> _records = {
     Difficulty.normal:   0,
@@ -193,17 +194,17 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   /// Saves a new record if [score] beats the current one for [diff].
-  /// Returns true if it is a new record.
-  Future<bool> _saveRecord(int score, Difficulty diff) async {
+  /// Returns (isNewRecord, wasSubmittedToLeaderboard).
+  Future<(bool, bool)> _saveRecord(int score, Difficulty diff) async {
     if (score > (_records[diff] ?? 0)) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt(_recordKey(diff), score);
       setState(() => _records[diff] = score);
-      // Post to the global leaderboard (silently — min score enforced inside).
-      LeaderboardService().submitScore(_difficultyName(diff).toLowerCase(), score);
-      return true;
+      final submitted = await LeaderboardService()
+          .submitScore(_difficultyName(diff).toLowerCase(), score);
+      return (true, submitted);
     }
-    return false;
+    return (false, false);
   }
 
   Future<void> _runIntroLoop(int gen) async {
@@ -288,6 +289,94 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   // ── Tip jar & leaderboard ─────────────────────────────────────────────────
 
   Future<void> _openTipJar() => showTipJar(context);
+
+  void _openSettings(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A2A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => ListenableBuilder(
+        listenable: LeaderboardService(),
+        builder: (ctx, __) {
+          final lb = LeaderboardService();
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(28, 24, 28, 40),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('SETTINGS', style: TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.w800,
+                  color: Colors.white38, letterSpacing: 3,
+                )),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Leaderboard',
+                              style: TextStyle(fontSize: 15, color: Colors.white70,
+                                  fontWeight: FontWeight.w600)),
+                          SizedBox(height: 3),
+                          Text('Submit personal records to the global leaderboard',
+                              style: TextStyle(fontSize: 12, color: Colors.white38, height: 1.4)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    GestureDetector(
+                      onTap: () => lb.setOptedOut(!lb.optedOut),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: 50,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(15),
+                          color: lb.optedOut
+                              ? Colors.white12
+                              : const Color(0xFF44DD88).withValues(alpha: 0.35),
+                          border: Border.all(
+                            color: lb.optedOut
+                                ? Colors.white24
+                                : const Color(0xFF44DD88),
+                            width: 1.2,
+                          ),
+                        ),
+                        child: Stack(
+                          children: [
+                            AnimatedPositioned(
+                              duration: const Duration(milliseconds: 200),
+                              curve: Curves.easeInOut,
+                              left: lb.optedOut ? 2 : 20,
+                              top: 2,
+                              child: Container(
+                                width: 26,
+                                height: 26,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: lb.optedOut
+                                      ? Colors.white38
+                                      : const Color(0xFF44DD88),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
 
   Future<void> _openLeaderboard() async {
     final lb = LeaderboardService();
@@ -550,8 +639,13 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _cancelInputTimer();
     _sound.playFail();
     final diffAtGameOver = _difficulty;
-    _saveRecord(_score, diffAtGameOver).then((wasNew) {
-      if (mounted) setState(() { _isNewRecord = wasNew; _gameOverDifficulty = diffAtGameOver; });
+    _saveRecord(_score, diffAtGameOver).then((result) {
+      final (wasNew, submitted) = result;
+      if (mounted) setState(() {
+        _isNewRecord = wasNew;
+        _recordSubmitted = submitted;
+        _gameOverDifficulty = diffAtGameOver;
+      });
     });
     setState(() {
       _phase = GamePhase.gameOverFlash;
@@ -592,6 +686,38 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     }
     if (!mounted || _generation != gen) return;
     setState(() => _phase = GamePhase.gameOver);
+    // Show record congratulations after a short beat.
+    if (_isNewRecord) {
+      await Future.delayed(const Duration(milliseconds: 350));
+      if (mounted && _generation == gen) _showRecordCongrats();
+    }
+  }
+
+  Future<void> _showRecordCongrats() async {
+    final score      = _score;
+    final modeName   = _difficultyName(_gameOverDifficulty);
+    final submitted  = _recordSubmitted;
+    final lb         = LeaderboardService();
+    await showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss',
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 320),
+      transitionBuilder: (ctx, anim, _, child) {
+        final curved = CurvedAnimation(parent: anim, curve: Curves.elasticOut);
+        return FadeTransition(
+          opacity: anim,
+          child: ScaleTransition(scale: curved, child: child),
+        );
+      },
+      pageBuilder: (ctx, _, __) => _RecordCongratsDialog(
+        score: score,
+        modeName: modeName,
+        submitted: submitted,
+        leaderboardService: lb,
+      ),
+    );
   }
 
   bool get _buttonsEnabled =>
@@ -744,20 +870,31 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   ),
                 ),
                 const SizedBox(height: 16),
-                GestureDetector(
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const HowToPlayPage()),
-                  ),
-                  child: const Text(
-                    'How to play',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.white38,
-                      decoration: TextDecoration.underline,
-                      decorationColor: Colors.white24,
-                      letterSpacing: 1,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    GestureDetector(
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const HowToPlayPage()),
+                      ),
+                      child: const Text(
+                        'How to play',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.white38,
+                          decoration: TextDecoration.underline,
+                          decorationColor: Colors.white24,
+                          letterSpacing: 1,
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 20),
+                    GestureDetector(
+                      onTap: () => _openSettings(context),
+                      child: const Icon(Icons.settings_outlined,
+                          size: 18, color: Colors.white24),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -1288,6 +1425,212 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           ),
         );
       }).toList(),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Record congratulations dialog
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _RecordCongratsDialog extends StatefulWidget {
+  final int score;
+  final String modeName;
+  final bool submitted;
+  final LeaderboardService leaderboardService;
+
+  const _RecordCongratsDialog({
+    required this.score,
+    required this.modeName,
+    required this.submitted,
+    required this.leaderboardService,
+  });
+
+  @override
+  State<_RecordCongratsDialog> createState() => _RecordCongratsDialogState();
+}
+
+class _RecordCongratsDialogState extends State<_RecordCongratsDialog> {
+  static const _letterData = [
+    ('N', Color(0xFFFF3333),    0.12),
+    ('E', Colors.orange,       -0.15),
+    ('W', Color(0xFF33FF44),    0.10),
+    (' ', Colors.white,         0.00),
+    ('R', Colors.yellow,        0.18),
+    ('E', Color(0xFF3366FF),   -0.10),
+    ('C', Colors.purpleAccent,  0.14),
+    ('O', Color(0xFFFF3333),   -0.08),
+    ('R', Color(0xFF00FFFF),    0.16),
+    ('D', Color(0xFFFF00FF),   -0.12),
+    ('!', Colors.white,         0.09),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final lb         = widget.leaderboardService;
+    final titleStyle = GoogleFonts.nunito(
+      fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: 2,
+    );
+
+    // Determine leaderboard status line.
+    Widget leaderboardStatus;
+    if (widget.score < kLeaderboardMinScore) {
+      leaderboardStatus = const SizedBox.shrink();
+    } else if (lb.optedOut) {
+      leaderboardStatus = ListenableBuilder(
+        listenable: lb,
+        builder: (context, _) => _LeaderboardOptRow(lb: lb),
+      );
+    } else if (widget.submitted) {
+      leaderboardStatus = ListenableBuilder(
+        listenable: lb,
+        builder: (context, _) => _LeaderboardOptRow(lb: lb, submitted: true),
+      );
+    } else {
+      // Signed out or failed — just show the opt-out row so they know it exists.
+      leaderboardStatus = ListenableBuilder(
+        listenable: lb,
+        builder: (context, _) => _LeaderboardOptRow(lb: lb),
+      );
+    }
+
+    return Dialog(
+      backgroundColor: const Color(0xFF1A1A2A),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 36),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('🏆', style: TextStyle(fontSize: 56)),
+            const SizedBox(height: 16),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  for (final (char, color, angle) in _letterData)
+                    Transform.rotate(
+                      angle: angle,
+                      child: Text(char, style: titleStyle.copyWith(color: color)),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              '${widget.score}',
+              style: GoogleFonts.nunito(
+                fontSize: 64, fontWeight: FontWeight.w900, color: Colors.white,
+              ),
+            ),
+            Text(
+              '${widget.modeName} mode',
+              style: const TextStyle(
+                fontSize: 13, color: Colors.white54, letterSpacing: 2,
+              ),
+            ),
+            const SizedBox(height: 20),
+            leaderboardStatus,
+            const SizedBox(height: 24),
+            GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(36),
+                  border: Border.all(color: Colors.white54, width: 1.5),
+                ),
+                child: const Center(
+                  child: Text(
+                    'KEEP GOING',
+                    style: TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w800,
+                      color: Colors.white, letterSpacing: 3,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// One row: leaderboard submitted tick (or not-signed-in note) + opt-out toggle.
+class _LeaderboardOptRow extends StatelessWidget {
+  final LeaderboardService lb;
+  final bool submitted;
+
+  const _LeaderboardOptRow({required this.lb, this.submitted = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final String label;
+    final Color  labelColor;
+    if (lb.optedOut) {
+      label      = 'Not submitted — leaderboard off';
+      labelColor = Colors.white30;
+    } else if (submitted) {
+      label      = 'Submitted to leaderboard ✓';
+      labelColor = const Color(0xFF44DD88);
+    } else {
+      label      = 'Not submitted (sign in to rank)';
+      labelColor = Colors.white38;
+    }
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(fontSize: 12, color: labelColor, height: 1.4),
+          ),
+        ),
+        const SizedBox(width: 8),
+        GestureDetector(
+          onTap: () => lb.setOptedOut(!lb.optedOut),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: 44,
+            height: 26,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(13),
+              color: lb.optedOut
+                  ? Colors.white12
+                  : const Color(0xFF44DD88).withValues(alpha: 0.35),
+              border: Border.all(
+                color: lb.optedOut ? Colors.white24 : const Color(0xFF44DD88),
+                width: 1.2,
+              ),
+            ),
+            child: Stack(
+              children: [
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeInOut,
+                  left: lb.optedOut ? 2 : 18,
+                  top: 2,
+                  child: Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: lb.optedOut ? Colors.white38 : const Color(0xFF44DD88),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
