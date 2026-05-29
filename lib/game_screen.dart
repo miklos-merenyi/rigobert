@@ -299,7 +299,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       ),
       builder: (_) => ListenableBuilder(
         listenable: LeaderboardService(),
-        builder: (ctx, __) {
+        builder: (ctx, _) {
           final lb = LeaderboardService();
           return Padding(
             padding: const EdgeInsets.fromLTRB(28, 24, 28, 40),
@@ -641,11 +641,13 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     final diffAtGameOver = _difficulty;
     _saveRecord(_score, diffAtGameOver).then((result) {
       final (wasNew, submitted) = result;
-      if (mounted) setState(() {
-        _isNewRecord = wasNew;
-        _recordSubmitted = submitted;
-        _gameOverDifficulty = diffAtGameOver;
-      });
+      if (mounted) {
+        setState(() {
+          _isNewRecord = wasNew;
+          _recordSubmitted = submitted;
+          _gameOverDifficulty = diffAtGameOver;
+        });
+      }
     });
     setState(() {
       _phase = GamePhase.gameOverFlash;
@@ -711,7 +713,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           child: ScaleTransition(scale: curved, child: child),
         );
       },
-      pageBuilder: (ctx, _, __) => _RecordCongratsDialog(
+      pageBuilder: (ctx, _, _) => _RecordCongratsDialog(
         score: score,
         modeName: modeName,
         submitted: submitted,
@@ -1129,39 +1131,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       ('V', Colors.purpleAccent,-0.09),
       ('E', Colors.orange,       0.12),
       ('R', Color(0xFFFF4444),  -0.06),
-    ];
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          for (final (char, color, angle) in letters)
-            Transform.rotate(
-              angle: angle,
-              child: Text(char, style: style.copyWith(color: color)),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOverlayTitle() {
-    final style = GoogleFonts.nunito(fontSize: 44, fontWeight: FontWeight.w900);
-    const letters = [
-      ('R', Color(0xFFFF3333),   0.00),
-      ('I', Colors.orange,      -0.10),
-      ('G', Color(0xFF33FF44),   0.00),
-      ('O', Colors.yellow,       0.13),
-      ('B', Color(0xFF3366FF),  -0.08),
-      ('E', Colors.purpleAccent, 0.00),
-      ('R', Color(0xFFFF3333),   0.11),
-      ('T', Colors.white,       -0.06),
-      (' ', Colors.white,        0.00),
-      ('S', Color(0xFF00FFFF),  -0.12),
-      ('A', Colors.yellow,       0.00),
-      ('Y', Color(0xFFFF00FF),   0.09),
-      ('S', Color(0xFF00FFFF),  -0.07),
     ];
     return FittedBox(
       fit: BoxFit.scaleDown,
