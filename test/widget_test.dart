@@ -7,11 +7,11 @@
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:rugbart_says/main.dart';
+import 'package:rigobert_says/main.dart';
 
 void main() {
   testWidgets('App smoke test', (WidgetTester tester) async {
-    await tester.pumpWidget(const RugbartSaysApp());
+    await tester.pumpWidget(const RigobertSaysApp());
     expect(find.text('START'), findsOneWidget);
   });
 }

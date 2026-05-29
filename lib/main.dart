@@ -7,16 +7,16 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await NoScreenshot.instance.screenshotOff();
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-  runApp(const RugbartSaysApp());
+  runApp(const RigobertSaysApp());
 }
 
-class RugbartSaysApp extends StatelessWidget {
-  const RugbartSaysApp({super.key});
+class RigobertSaysApp extends StatelessWidget {
+  const RigobertSaysApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Rugbart Says',
+      title: 'Rigobert Says',
       theme: ThemeData.dark(useMaterial3: true),
       home: const GameScreen(),
       debugShowCheckedModeBanner: false,

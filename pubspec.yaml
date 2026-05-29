@@ -1,4 +1,4 @@
-name: rugbart_says
+name: rigobert_says
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -38,6 +38,7 @@ dependencies:
   audioplayers: ^6.0.0
   path_provider: ^2.1.0
   no_screenshot: ^1.1.0
+  google_fonts: ^6.2.1
 
 dev_dependencies:
   flutter_test:

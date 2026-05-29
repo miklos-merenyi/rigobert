@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'circle_buttons.dart';
 import 'game_colors.dart';
@@ -62,7 +63,13 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   bool _stepMatched = false;
   bool _hasPressedThisStep = false;
   int _score = 0;
-  int _personalRecord = 0;
+  // Per-mode personal records keyed by Difficulty
+  final Map<Difficulty, int> _records = {
+    Difficulty.normal:   0,
+    Difficulty.floating: 0,
+    Difficulty.spinning: 0,
+    Difficulty.both:     0,
+  };
 
   Color _displayColor = Colors.black;
   double _displayOpacity = 0.0;
@@ -89,6 +96,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   // Intro plays exactly once at startup; after it finishes buttons become an instrument.
   bool _introPlaying    = false;
   bool _hasPlayedIntro  = false;
+  bool _isNewRecord     = false;
+  Difficulty _gameOverDifficulty = Difficulty.normal;
 
   @override
   void initState() {
@@ -107,17 +116,27 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _runIntroLoop(_generation);
   }
 
+  static String _recordKey(Difficulty d) => 'record_${d.name}';
+
   Future<void> _loadRecord() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() => _personalRecord = prefs.getInt('personal_record') ?? 0);
+    setState(() {
+      for (final d in Difficulty.values) {
+        _records[d] = prefs.getInt(_recordKey(d)) ?? 0;
+      }
+    });
   }
 
-  Future<void> _saveRecord(int score) async {
-    if (score > _personalRecord) {
+  /// Saves a new record if [score] beats the current one for [diff].
+  /// Returns true if it is a new record.
+  Future<bool> _saveRecord(int score, Difficulty diff) async {
+    if (score > (_records[diff] ?? 0)) {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt('personal_record', score);
-      setState(() => _personalRecord = score);
+      await prefs.setInt(_recordKey(diff), score);
+      setState(() => _records[diff] = score);
+      return true;
     }
+    return false;
   }
 
   Future<void> _runIntroLoop(int gen) async {
@@ -214,7 +233,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       _hasPressedThisStep = false;
       _displayOpacity = 0.0;
       _floatPhaseX = 0.0;
-      _floatPhaseY = 0.0;
+      // BOTH mode: start from bottom (sin(pi/3 + pi/6) = sin(pi/2) = 1 → dy = vRange)
+      _floatPhaseY = _difficulty == Difficulty.both ? pi / 6 : 0.0;
       _spinPhaseOffset = 0.0;
       _floatLevel = 0;
     });
@@ -307,9 +327,12 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       _displayColor = mixColors(newPressed);
       _displayOpacity = 0.5;
     });
-    final snapshot = Set.of(newPressed);
+    // Cancel any pending timer AND stop whatever sound already started,
+    // so a second finger arriving after the window doesn't overlap.
     _chordTimer?.cancel();
-    _chordTimer = Timer(const Duration(milliseconds: 40), () {
+    _sound.stopCombo();
+    final snapshot = Set.of(newPressed);
+    _chordTimer = Timer(const Duration(milliseconds: 80), () {
       _sound.playCombo(_pressedButtons.isNotEmpty ? _pressedButtons : snapshot);
     });
   }
@@ -321,14 +344,13 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     final newPressed = Set<GameColor>.from(_pressedButtons)..add(color);
     _handlePressChange(newPressed);
 
-    // Chord window: restart the timer on every new press.  When it fires
-    // we play exactly the combo that is held at that moment, so two fingers
-    // landing within 40 ms produce only one (combo) sound, not two.
-    // If all fingers lifted before the window expires, fall back to the
-    // snapshot captured at this down-event.
-    final snapshot = Set.of(newPressed);
+    // Chord window: on every new press, cancel the pending timer AND stop any
+    // sound that already fired from a previous press in this gesture.
+    // This ensures the sound only plays once the full chord is known.
     _chordTimer?.cancel();
-    _chordTimer = Timer(const Duration(milliseconds: 40), () {
+    _sound.stopCombo();
+    final snapshot = Set.of(newPressed);
+    _chordTimer = Timer(const Duration(milliseconds: 80), () {
       _sound.playCombo(_pressedButtons.isNotEmpty ? _pressedButtons : snapshot);
     });
   }
@@ -404,11 +426,16 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   void _gameOver() {
     _cancelInputTimer();
     _sound.playFail();
-    _saveRecord(_score);
+    final diffAtGameOver = _difficulty;
+    _saveRecord(_score, diffAtGameOver).then((wasNew) {
+      if (mounted) setState(() { _isNewRecord = wasNew; _gameOverDifficulty = diffAtGameOver; });
+    });
     setState(() {
       _phase = GamePhase.gameOverFlash;
       _highlightedButtons = {};
       _displayOpacity = 0.0;
+      _isNewRecord = false;
+      _gameOverDifficulty = diffAtGameOver;
     });
     _runGameOverFlash(_generation);
   }
@@ -462,8 +489,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                     _buildTimerStrip(),
                   ],
                 ),
-                if (_isFloating) _buildFloatingDisc(constraints),
                 if (_phase == GamePhase.idle) _buildOverlay(isGameOver: false),
+                // Floating disc renders above the idle gradient so it stays visible
+                // even when it drifts into the upper part of the screen.
+                if (_isFloating) _buildFloatingDisc(constraints),
                 if (_phase == GamePhase.gameOver) _buildOverlay(isGameOver: true),
               ],
             );
@@ -474,16 +503,17 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildHeader() {
-    const base = TextStyle(fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: 4);
-    // R=red, U=orange, G=green, B=blue, A=yellow, R=red, T=purple · S=cyan, A=yellow, Y=magenta, S=cyan
+    final base = GoogleFonts.nunito(fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: 4);
+    // R=red, I=orange, G=green, O=yellow, B=blue, E=purple, R=red, T=white · S=cyan, A=yellow, Y=magenta, S=cyan
     final letters = [
       ('R', const Color(0xFFFF3333)),
-      ('U', Colors.orange),
+      ('I', Colors.orange),
       ('G', const Color(0xFF33FF33)),
+      ('O', Colors.yellow),
       ('B', const Color(0xFF3366FF)),
-      ('A', Colors.yellow),
+      ('E', Colors.purpleAccent),
       ('R', const Color(0xFFFF3333)),
-      ('T', Colors.purpleAccent),
+      ('T', Colors.white),
       (' ', Colors.white),
       ('S', const Color(0xFF00FFFF)),
       ('A', Colors.yellow),
@@ -642,7 +672,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildGameOverTitle() {
-    const style = TextStyle(fontSize: 46, fontWeight: FontWeight.w900);
+    final style = GoogleFonts.nunito(fontSize: 46, fontWeight: FontWeight.w900);
     const letters = [
       ('G', Color(0xFFFF3333),   0.09),
       ('A', Colors.orange,      -0.07),
@@ -671,20 +701,21 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildOverlayTitle() {
-    const style = TextStyle(fontSize: 44, fontWeight: FontWeight.w900);
+    final style = GoogleFonts.nunito(fontSize: 44, fontWeight: FontWeight.w900);
     const letters = [
-      ('R', Color(0xFFFF3333),  0.00),
-      ('U', Colors.orange,     -0.10),
-      ('G', Color(0xFF33FF44),  0.00),
-      ('B', Color(0xFF3366FF),  0.13),
-      ('A', Colors.yellow,     -0.08),
-      ('R', Color(0xFFFF3333),  0.00),
-      ('T', Colors.purpleAccent, 0.11),
-      (' ', Colors.white,       0.00),
-      ('S', Color(0xFF00FFFF), -0.12),
-      ('A', Colors.yellow,      0.00),
-      ('Y', Color(0xFFFF00FF),  0.09),
-      ('S', Color(0xFF00FFFF), -0.07),
+      ('R', Color(0xFFFF3333),   0.00),
+      ('I', Colors.orange,      -0.10),
+      ('G', Color(0xFF33FF44),   0.00),
+      ('O', Colors.yellow,       0.13),
+      ('B', Color(0xFF3366FF),  -0.08),
+      ('E', Colors.purpleAccent, 0.00),
+      ('R', Color(0xFFFF3333),   0.11),
+      ('T', Colors.white,       -0.06),
+      (' ', Colors.white,        0.00),
+      ('S', Color(0xFF00FFFF),  -0.12),
+      ('A', Colors.yellow,       0.00),
+      ('Y', Color(0xFFFF00FF),   0.09),
+      ('S', Color(0xFF00FFFF),  -0.07),
     ];
     return FittedBox(
       fit: BoxFit.scaleDown,
@@ -702,12 +733,22 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     );
   }
 
+  static String _difficultyName(Difficulty d) {
+    switch (d) {
+      case Difficulty.normal:   return 'STILL';
+      case Difficulty.floating: return 'FLOAT';
+      case Difficulty.spinning: return 'SPIN';
+      case Difficulty.both:     return 'BOTH';
+    }
+  }
+
   Widget _buildOverlay({required bool isGameOver}) {
-    final isNewRecord = isGameOver && _score > 0 && _score >= _personalRecord;
+    final modeRecord = _records[_gameOverDifficulty] ?? 0;
+    final modeName   = _difficultyName(_gameOverDifficulty);
     final scoreLines = isGameOver
         ? 'You reached level ${_sequence.length}\nScore: $_score'
-            '${isNewRecord ? '\n🏆 New Record!' : (_personalRecord > 0 ? '\nRecord: $_personalRecord' : '')}'
-        : 'Watch the flashing colours,\nthen repeat — even two or three\nbuttons at the same time!';
+            '${_isNewRecord ? '\n🏆 New record for $modeName mode: $_score' : (modeRecord > 0 ? '\n$modeName mode record: $modeRecord' : '')}'
+        : 'Repeat the sequence!';
     final subtitle = scoreLines;
     final buttonLabel = isGameOver ? 'TRY AGAIN' : 'START';
 
@@ -735,18 +776,19 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               GestureDetector(
                 onTap: isGameOver ? _goToIdle : _startGame,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 52, vertical: 18),
+                  padding: const EdgeInsets.symmetric(horizontal: 52, vertical: 16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Colors.white.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(36),
+                    border: Border.all(color: Colors.white70, width: 1.5),
                   ),
                   child: Text(
                     buttonLabel,
                     style: const TextStyle(
                       fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                      letterSpacing: 2,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      letterSpacing: 3,
                     ),
                   ),
                 ),
@@ -754,6 +796,24 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               if (isGameOver) ...[
                 const SizedBox(height: 24),
                 _buildColorLegend(),
+              ],
+              if (!isGameOver) ...[
+                const SizedBox(height: 20),
+                GestureDetector(
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const HowToPlayPage()),
+                  ),
+                  child: const Text(
+                    'How to play',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.white38,
+                      decoration: TextDecoration.underline,
+                      decorationColor: Colors.white24,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
               ],
             ],
           ),
@@ -876,6 +936,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   Widget _buildDifficultySelector() {
     const options = [
+      (Difficulty.normal,   'STILL'),
       (Difficulty.floating, 'FLOAT'),
       (Difficulty.spinning, 'SPIN'),
       (Difficulty.both,     'BOTH'),
@@ -886,8 +947,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         final (diff, label) = opt;
         final selected = _difficulty == diff;
         return GestureDetector(
-          onTap: () => setState(
-              () => _difficulty = selected ? Difficulty.normal : diff),
+          onTap: () => setState(() => _difficulty = diff),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
             margin: const EdgeInsets.symmetric(horizontal: 5),
@@ -950,6 +1010,145 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           ),
         );
       }).toList(),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// How To Play page
+// ─────────────────────────────────────────────────────────────────────────────
+
+class HowToPlayPage extends StatelessWidget {
+  const HowToPlayPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF111111),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white70),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: const Text(
+          'HOW TO PLAY',
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 3,
+          ),
+        ),
+        centerTitle: true,
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+          child: DefaultTextStyle(
+            style: const TextStyle(color: Colors.white70, fontSize: 15, height: 1.7),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                _HowToSection(
+                  icon: Icons.lightbulb_outline,
+                  iconColor: Color(0xFFFF3333),
+                  title: 'The basics',
+                  body:
+                    'RIGOBERT SAYS is a memory game. The disc lights up a sequence of coloured buttons — watch carefully, then tap them back in the same order. Each round adds one more step.',
+                ),
+                SizedBox(height: 28),
+                _HowToSection(
+                  icon: Icons.touch_app_outlined,
+                  iconColor: Color(0xFF33FF33),
+                  title: 'The buttons',
+                  body:
+                    'There are three coloured segments on the disc:\n'
+                    '  🔴  Red\n'
+                    '  🟢  Green\n'
+                    '  🔵  Blue\n\n'
+                    'Some steps light up two or even all three at once — you must press those buttons simultaneously.',
+                ),
+                SizedBox(height: 28),
+                _HowToSection(
+                  icon: Icons.palette_outlined,
+                  iconColor: Color(0xFF3366FF),
+                  title: 'Colour mixing',
+                  body:
+                    'When multiple buttons light up together, the disc blends their colours:\n'
+                    '  🔴 + 🟢 = Yellow\n'
+                    '  🔴 + 🔵 = Magenta\n'
+                    '  🟢 + 🔵 = Cyan\n'
+                    '  🔴 + 🟢 + 🔵 = White',
+                ),
+                SizedBox(height: 28),
+                _HowToSection(
+                  icon: Icons.tune_outlined,
+                  iconColor: Colors.purpleAccent,
+                  title: 'Difficulty modes',
+                  body:
+                    'Choose your challenge before you start:\n\n'
+                    '  STILL — the disc stays in the centre.\n'
+                    '  FLOAT — the disc drifts around the screen.\n'
+                    '  SPIN  — the disc slowly rotates.\n'
+                    '  BOTH  — the disc floats and spins at the same time.\n\n'
+                    'Floating and spinning speeds increase as the sequence grows longer.',
+                ),
+                SizedBox(height: 28),
+                _HowToSection(
+                  icon: Icons.emoji_events_outlined,
+                  iconColor: Colors.amber,
+                  title: 'Scoring',
+                  body:
+                    'You score points for every correct sequence. Your personal record is saved between sessions — can you beat it?',
+                ),
+                SizedBox(height: 40),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HowToSection extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String body;
+
+  const _HowToSection({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.body,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, color: iconColor, size: 20),
+            const SizedBox(width: 10),
+            Text(
+              title.toUpperCase(),
+              style: TextStyle(
+                color: iconColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 2,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Text(body),
+      ],
     );
   }
 }
