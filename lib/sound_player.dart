@@ -1,29 +1,29 @@
-import 'dart:async';
-import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
 import 'package:audioplayers/audioplayers.dart';
-import 'package:path_provider/path_provider.dart';
 import 'game_colors.dart';
-
-// Chaotic pitches for the game-over R2-D2 flash (16 slots, 120 ms each).
-const _kR2D2Freqs = <double>[
-  330, 440, 550, 660, 880, 1100, 1320, 1760,
-  2200, 2640, 990, 1650, 2090, 770, 1540, 3000,
-];
 
 // F minor pentatonic, one note per button combination (low → high complexity).
 //   Single:  Red=F4, Green=G4, Blue=Bb4
 //   Pairs:   R+G=C5, R+B=D5, G+B=F5
 //   All:     R+G+B=G5
-const _kComboFreq = <String, double>{
-  '0':     349.23, // F4  — Red
-  '1':     392.00, // G4  — Green
-  '2':     466.16, // Bb4 — Blue
-  '0-1':   523.25, // C5  — Red + Green
-  '0-2':   587.33, // D5  — Red + Blue
-  '1-2':   698.46, // F5  — Green + Blue
-  '0-1-2': 783.99, // G5  — All three
+const _kComboAsset = <String, String>{
+  '0':     'sounds/combo_0.mp3',     // F4  — Red
+  '1':     'sounds/combo_1.mp3',     // G4  — Green
+  '2':     'sounds/combo_2.mp3',     // Bb4 — Blue
+  '0-1':   'sounds/combo_0-1.mp3',   // C5  — Red + Green
+  '0-2':   'sounds/combo_0-2.mp3',   // D5  — Red + Blue
+  '1-2':   'sounds/combo_1-2.mp3',   // F5  — Green + Blue
+  '0-1-2': 'sounds/combo_0-1-2.mp3', // G5  — All three
+};
+
+// Melody note frequencies → combo asset (same pitches, reuse the files).
+const _kMelodyAsset = <double, String>{
+  349.23: 'sounds/combo_0.mp3',
+  392.00: 'sounds/combo_1.mp3',
+  466.16: 'sounds/combo_2.mp3',
+  523.25: 'sounds/combo_0-1.mp3',
+  587.33: 'sounds/combo_0-2.mp3',
+  698.46: 'sounds/combo_1-2.mp3',
 };
 
 /// Canonical key for a combo set (sorted by enum index).
@@ -32,196 +32,45 @@ String _key(Set<GameColor> combo) {
   return sorted.map((c) => c.index.toString()).join('-');
 }
 
-// ── WAV synthesis ──────────────────────────────────────────────────────────
-
-Uint8List _buildWav(double frequency, int durationMs) {
-  const sampleRate = 44100;
-  final numSamples = (sampleRate * durationMs / 1000).round();
-  final dataBytes = numSamples * 2;
-  final buf = ByteData(44 + dataBytes);
-
-  void ascii(int off, String s) {
-    for (int i = 0; i < s.length; i++) {
-      buf.setUint8(off + i, s.codeUnitAt(i));
-    }
-  }
-
-  ascii(0, 'RIFF');
-  buf.setUint32(4, 36 + dataBytes, Endian.little);
-  ascii(8, 'WAVE');
-  ascii(12, 'fmt ');
-  buf.setUint32(16, 16, Endian.little);
-  buf.setUint16(20, 1, Endian.little);  // PCM
-  buf.setUint16(22, 1, Endian.little);  // mono
-  buf.setUint32(24, sampleRate, Endian.little);
-  buf.setUint32(28, sampleRate * 2, Endian.little);
-  buf.setUint16(32, 2, Endian.little);
-  buf.setUint16(34, 16, Endian.little);
-  ascii(36, 'data');
-  buf.setUint32(40, dataBytes, Endian.little);
-
-  // 40 ms fade-in, 80 ms fade-out — softer ramps reduce click artefacts and
-  // give headroom when players briefly overlap during rapid note changes.
-  final attackSamples  = (sampleRate * 0.040).round();
-  final releaseSamples = (sampleRate * 0.080).round();
-
-  for (int i = 0; i < numSamples; i++) {
-    final attack  = i < attackSamples ? i / attackSamples : 1.0;
-    final release = i > numSamples - releaseSamples
-        ? (numSamples - i) / releaseSamples : 1.0;
-    final t = i / sampleRate;
-    // Amplitude 16000 (~49 % of max) keeps two overlapping players well below
-    // clipping even without OS-level limiting.
-    final v = (sin(2 * pi * frequency * t) * attack * release * 16000)
-        .round().clamp(-32768, 32767);
-    buf.setInt16(44 + i * 2, v, Endian.little);
-  }
-
-  return buf.buffer.asUint8List();
-}
-
-/// Noisy, out-of-tune fail sound: three detuned sawtooth-like oscillators
-/// (300 / 317 / 337 Hz) that beat against each other harshly, mixed with
-/// 15 % white noise, under a fast exponential-decay envelope (~600 ms).
-Uint8List _buildFailSound() {
-  const sampleRate = 44100;
-  const durationMs = 650;
-  final numSamples = (sampleRate * durationMs / 1000).round();
-  final dataBytes  = numSamples * 2;
-  final buf = ByteData(44 + dataBytes);
-  final rng = Random();
-
-  void ascii(int off, String s) {
-    for (int i = 0; i < s.length; i++) {
-      buf.setUint8(off + i, s.codeUnitAt(i));
-    }
-  }
-
-  ascii(0, 'RIFF');
-  buf.setUint32(4, 36 + dataBytes, Endian.little);
-  ascii(8, 'WAVE');
-  ascii(12, 'fmt ');
-  buf.setUint32(16, 16, Endian.little);
-  buf.setUint16(20, 1, Endian.little);
-  buf.setUint16(22, 1, Endian.little);
-  buf.setUint32(24, sampleRate, Endian.little);
-  buf.setUint32(28, sampleRate * 2, Endian.little);
-  buf.setUint16(32, 2, Endian.little);
-  buf.setUint16(34, 16, Endian.little);
-  ascii(36, 'data');
-  buf.setUint32(40, dataBytes, Endian.little);
-
-  // Three oscillators spaced to produce fast, clashing beats.
-  // Each uses the first 5 harmonics (sawtooth approximation) for a buzzy timbre.
-  const osc = [300.0, 317.0, 337.0];
-
-  for (int i = 0; i < numSamples; i++) {
-    final t   = i / sampleRate;
-    final env = exp(-t * 7.5); // fast decay
-
-    double s = 0;
-    for (final f in osc) {
-      // Sawtooth from odd harmonics (harsher than pure sine)
-      for (int h = 1; h <= 5; h++) {
-        s += sin(2 * pi * f * h * t) / h;
-      }
-    }
-    s /= osc.length;
-
-    // Mix in white noise (15 %)
-    s = s * 0.85 + (rng.nextDouble() * 2 - 1) * 0.15;
-
-    final v = (s * env * 14000).round().clamp(-32768, 32767);
-    buf.setInt16(44 + i * 2, v, Endian.little);
-  }
-
-  return buf.buffer.asUint8List();
-}
-
-Future<String> _writeTempWav(String name, Uint8List bytes) async {
-  final dir = await getTemporaryDirectory();
-  final file = File('${dir.path}/$name.wav');
-  await file.writeAsBytes(bytes, flush: true);
-  return file.path;
-}
-
 // ── SoundPlayer ────────────────────────────────────────────────────────────
 
 class SoundPlayer {
-  // Single player for interactive combo sounds (one pitch at a time).
   final _comboPlayer  = AudioPlayer();
-  // Separate player for the Promenade intro melody.
   final _melodyPlayer = AudioPlayer();
-  // Dedicated player for the fail buzzer.
   final _failPlayer   = AudioPlayer();
-  // Dedicated player for game-over R2-D2 chatter.
   final _r2d2Player   = AudioPlayer();
+  final _r2d2Rng      = Random();
 
-  // Pre-written temp file paths, keyed by combo key string.
-  final Map<String, String?> _comboPaths = {};
-  String? _failPath;
-  final List<String?> _r2d2Paths = List.filled(16, null);
-  final _r2d2Rng = Random();
-  bool _ready = false;
-
-  // Each combo touch gets a 400 ms slot; the WAV rings out naturally
-  // after the slot ends if nothing is queued.
+  // Each combo touch gets a 400 ms slot so rapid presses don't overlap.
   static const _slotMs = 400;
-  final _comboQueue   = <Set<GameColor>>[];
-  Timer? _comboSlotTimer;
-  bool _comboActive   = false;
+  final _comboQueue  = <Set<GameColor>>[];
+  bool  _comboActive = false;
 
   SoundPlayer() {
-    _comboPlayer
-      ..setReleaseMode(ReleaseMode.stop)
-      ..setVolume(0.9);
-    _melodyPlayer
-      ..setReleaseMode(ReleaseMode.stop)
-      ..setVolume(0.9);
-    _failPlayer
-      ..setReleaseMode(ReleaseMode.stop)
-      ..setVolume(0.9);
-    _r2d2Player
-      ..setReleaseMode(ReleaseMode.stop)
-      ..setVolume(0.9);
-    _init();
+    for (final p in [_comboPlayer, _melodyPlayer, _failPlayer, _r2d2Player]) {
+      p.setReleaseMode(ReleaseMode.stop);
+      p.setVolume(0.9);
+    }
   }
 
-  Future<void> _init() async {
-    for (final entry in _kComboFreq.entries) {
-      // 750 ms matches the note window used during sequence presentation,
-      // so player-input sounds feel identical in length to the playback ones.
-      final bytes = _buildWav(entry.value, 750);
-      _comboPaths[entry.key] = await _writeTempWav('rb_${entry.key}', bytes);
-    }
-    _failPath = await _writeTempWav('rb_fail', _buildFailSound());
-    for (int i = 0; i < _kR2D2Freqs.length; i++) {
-      _r2d2Paths[i] = await _writeTempWav('rb_r2d2_$i', _buildWav(_kR2D2Freqs[i], 90));
-    }
-    _ready = true;
-  }
+  // ── Combo / instrument ───────────────────────────────────────────────────
 
-  /// Queue [combo] for playback. If nothing is playing the note starts
-  /// immediately; otherwise it is appended (max queue depth: 3).
   Future<void> playCombo(Set<GameColor> combo) async {
     if (combo.isEmpty) return;
     if (_comboActive) {
       if (_comboQueue.length < 3) _comboQueue.add(Set.of(combo));
       return;
     }
-    _startComboSlot(combo);
+    await _startComboSlot(combo);
   }
 
-  void _startComboSlot(Set<GameColor> combo) {
-    final path = _comboPaths[_key(combo)];
-    if (path == null) return;
+  Future<void> _startComboSlot(Set<GameColor> combo) async {
+    final asset = _kComboAsset[_key(combo)];
+    if (asset == null) return;
     _comboActive = true;
-    // Fire-and-forget: stop current then play next.
-    _comboPlayer.stop().then((_) => _comboPlayer.play(DeviceFileSource(path)));
-    _comboSlotTimer = Timer(
-      const Duration(milliseconds: _slotMs),
-      _onComboSlotEnd,
-    );
+    await _comboPlayer.stop();
+    await _comboPlayer.play(AssetSource(asset));
+    Future.delayed(const Duration(milliseconds: _slotMs), _onComboSlotEnd);
   }
 
   void _onComboSlotEnd() {
@@ -229,68 +78,63 @@ class SoundPlayer {
     if (_comboQueue.isNotEmpty) {
       _startComboSlot(_comboQueue.removeAt(0));
     }
-    // Queue empty: WAV continues to ring out naturally until its end.
-  }
-
-  void _cancelComboQueue() {
-    _comboSlotTimer?.cancel();
-    _comboSlotTimer = null;
-    _comboQueue.clear();
-    _comboActive = false;
   }
 
   Future<void> stopCombo() async {
-    _cancelComboQueue();
+    _comboQueue.clear();
+    _comboActive = false;
     await _comboPlayer.stop();
   }
 
   /// Convenience alias used during sequence display.
   Future<void> playSet(Set<GameColor> colors) => playCombo(colors);
 
-  Future<void> playFail() async {
-    final path = _failPath;
-    if (path == null) return;
-    _cancelComboQueue();
-    await _comboPlayer.stop();
-    await _failPlayer.stop();
-    await _failPlayer.play(DeviceFileSource(path));
-  }
+  // ── Melody (intro) ───────────────────────────────────────────────────────
 
-  /// Plays one random beep from the R2-D2 pool (fire-and-forget).
-  Future<void> playR2D2Beep() async {
-    final path = _r2d2Paths[_r2d2Rng.nextInt(_r2d2Paths.length)];
-    if (path == null) return;
-    await _r2d2Player.stop();
-    _r2d2Player.play(DeviceFileSource(path));
-  }
-
-  Future<void> stopAll() async {
-    _cancelComboQueue();
-    await _comboPlayer.stop();
-    await _melodyPlayer.stop();
-    await _failPlayer.stop();
-    await _r2d2Player.stop();
-  }
-
-  // iOS caches audio data by file path, so reusing the same name plays the
-  // first note forever. Rotating through 8 slots ensures each play() call
-  // gets a path iOS hasn't seen since at least 8 notes ago.
-  int _melodySlot = 0;
-
-  /// Play a melody note at [frequency] Hz (used by the Promenade intro).
+  /// Play a melody note by frequency — reuses the bundled combo MP3s.
   Future<void> playNote(double frequency, int durationMs) async {
-    if (!_ready) return;
-    final bytes = _buildWav(frequency, durationMs);
-    final slot  = _melodySlot++ % 8;
-    final path  = await _writeTempWav('rb_melody_$slot', bytes);
+    // Find the closest asset frequency (within 1 Hz tolerance).
+    String? asset;
+    for (final entry in _kMelodyAsset.entries) {
+      if ((entry.key - frequency).abs() < 1.0) { asset = entry.value; break; }
+    }
+    if (asset == null) return;
     await _melodyPlayer.stop();
-    await _melodyPlayer.play(DeviceFileSource(path));
+    await _melodyPlayer.play(AssetSource(asset));
   }
 
   Future<void> stopMelody() => _melodyPlayer.stop();
 
+  // ── Fail & R2D2 ─────────────────────────────────────────────────────────
+
+  Future<void> playFail() async {
+    _comboQueue.clear();
+    _comboActive = false;
+    await _comboPlayer.stop();
+    await _failPlayer.stop();
+    await _failPlayer.play(AssetSource('sounds/fail.mp3'));
+  }
+
+  Future<void> playR2D2Beep() async {
+    final i = _r2d2Rng.nextInt(16);
+    await _r2d2Player.stop();
+    _r2d2Player.play(AssetSource('sounds/r2d2_$i.mp3'));
+  }
+
+  // ── Lifecycle ────────────────────────────────────────────────────────────
+
+  Future<void> stopAll() async {
+    _comboQueue.clear();
+    _comboActive = false;
+    await Future.wait([
+      _comboPlayer.stop(),
+      _melodyPlayer.stop(),
+      _failPlayer.stop(),
+      _r2d2Player.stop(),
+    ]);
+  }
+
   void dispose() {
-    _cancelComboQueue();
     _comboPlayer.dispose();
     _melodyPlayer.dispose();
     _failPlayer.dispose();

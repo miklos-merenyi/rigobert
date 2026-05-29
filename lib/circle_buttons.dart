@@ -282,33 +282,6 @@ class _CirclePainter extends CustomPainter {
           ..strokeWidth = 1.5
           ..style = PaintingStyle.stroke);
 
-    // ── Labels ────────────────────────────────────────────────────────────
-    for (final (color, _, _, labelAngle) in _sectors) {
-      final isLit = highlighted.contains(color);
-      final pos = center + Offset(cos(labelAngle), sin(labelAngle)) * radius * 0.58;
-      final label = switch (color) {
-        GameColor.red   => 'RED',
-        GameColor.green => 'GREEN',
-        GameColor.blue  => 'BLUE',
-      };
-      _paintLabel(canvas, label, pos, radius, isLit ? Colors.white : Colors.white38);
-    }
-  }
-
-  void _paintLabel(Canvas canvas, String text, Offset pos, double radius, Color color) {
-    final tp = TextPainter(
-      text: TextSpan(
-        text: text,
-        style: TextStyle(
-          color: color,
-          fontSize: radius * 0.16,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 1.2,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(canvas, pos - Offset(tp.width / 2, tp.height / 2));
   }
 
   @override
