@@ -573,10 +573,13 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF222222),
+      backgroundColor: const Color(0xFF2B2B3D),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
+            if (_phase == GamePhase.idle) {
+              return _buildIdleScreen(constraints);
+            }
             return Stack(
               children: [
                 Column(
@@ -584,21 +587,150 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                     _buildHeader(),
                     _buildDisplay(),
                     _buildStatusRow(),
-                    _buildButtons(),
+                    _buildButtons(constraints),
                     _buildLevelDots(),
                     _buildTimerStrip(),
                   ],
                 ),
-                if (_phase == GamePhase.idle) _buildOverlay(isGameOver: false),
-                // Floating disc renders above the idle gradient so it stays visible
-                // even when it drifts into the upper part of the screen.
                 if (_isFloating) _buildFloatingDisc(constraints),
-                if (_phase == GamePhase.gameOver) _buildOverlay(isGameOver: true),
+                if (_phase == GamePhase.gameOver) _buildOverlay(),
               ],
             );
           },
         ),
       ),
+    );
+  }
+
+  Widget _buildIdleScreen(BoxConstraints constraints) {
+    final sw = constraints.maxWidth;
+    final sh = constraints.maxHeight;
+    final discSize = min(sw * 0.72, sh * 0.45);
+
+    // Disc widget — same as gameplay
+    Widget discWidget = CircleButtons(
+      highlighted: _highlightedButtons,
+      enabled: _buttonsEnabled,
+      onDown: _onButtonDown,
+      onUp: _onButtonUp,
+    );
+    if (_isSpinning) {
+      discWidget = AnimatedBuilder(
+        animation: _diffCtrl,
+        builder: (context, child) {
+          final secs = _floatClock.elapsed.inMilliseconds / 1000.0;
+          return Transform.rotate(
+            angle: secs * 0.10 * 2 * pi + _spinPhaseOffset,
+            child: child!,
+          );
+        },
+        child: discWidget,
+      );
+    }
+
+    // Centred disc position (used when not floating)
+    final discTop = sh * 0.24;
+
+    // Personal record for the currently selected mode
+    final modeRecord = _records[_difficulty] ?? 0;
+    final modeName   = _difficultyName(_difficulty);
+
+    return Stack(
+      children: [
+        // ── disc ─────────────────────────────────────────────────────────────
+        if (_isFloating)
+          _buildFloatingDisc(constraints)
+        else
+          Positioned(
+            left: (sw - discSize) / 2,
+            top: discTop,
+            width: discSize,
+            height: discSize,
+            child: discWidget,
+          ),
+
+        // ── title (always on top of disc) ─────────────────────────────────
+        Positioned(
+          top: 0, left: 0, right: 0,
+          child: _buildHeader(),
+        ),
+
+        // ── bottom controls ───────────────────────────────────────────────
+        Positioned(
+          bottom: 0, left: 0, right: 0,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                stops: const [0.0, 0.7, 1.0],
+                colors: [
+                  const Color(0xFF2B2B3D),
+                  const Color(0xCC2B2B3D),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(32, 32, 32, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildIntroLights(),
+                const SizedBox(height: 16),
+                _buildDifficultySelector(),
+                const SizedBox(height: 8),
+                // Personal record for chosen mode
+                if (modeRecord > 0)
+                  Text(
+                    '$modeName mode record: $modeRecord',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.white38,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                const SizedBox(height: 16),
+                GestureDetector(
+                  onTap: _startGame,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 52, vertical: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(36),
+                      border: Border.all(color: Colors.white70, width: 1.5),
+                    ),
+                    child: const Text(
+                      'START',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        letterSpacing: 3,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                GestureDetector(
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const HowToPlayPage()),
+                  ),
+                  child: const Text(
+                    'How to play',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.white38,
+                      decoration: TextDecoration.underline,
+                      decorationColor: Colors.white24,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -693,11 +825,16 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildButtons() {
+  Widget _buildButtons(BoxConstraints screenConstraints) {
     // When floating the disc lives in the root Stack via _buildFloatingDisc().
     if (_isFloating) {
       return const Expanded(flex: 4, child: SizedBox());
     }
+
+    // Use the same size formula as _buildFloatingDisc so STILL/SPIN match
+    // FLOAT/BOTH exactly.
+    final discSize = min(screenConstraints.maxWidth * 0.72,
+                        screenConstraints.maxHeight * 0.45);
 
     final disc = CircleButtons(
       highlighted: _highlightedButtons,
@@ -706,24 +843,29 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       onUp: _onButtonUp,
     );
 
+    Widget discWidget = _isSpinning
+        ? AnimatedBuilder(
+            animation: _diffCtrl,
+            builder: (context, child) {
+              final secs = _floatClock.elapsed.inMilliseconds / 1000.0;
+              final freq = 0.10 + _sequence.length * 0.025;
+              return Transform.rotate(
+                angle: secs * freq * 2 * pi + _spinPhaseOffset,
+                child: child,
+              );
+            },
+            child: disc,
+          )
+        : disc;
+
     return Expanded(
       flex: 4,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 4, 24, 24),
-        child: _isSpinning
-            ? AnimatedBuilder(
-                animation: _diffCtrl,
-                builder: (context, child) {
-                  final secs = _floatClock.elapsed.inMilliseconds / 1000.0;
-                  final freq = 0.10 + _sequence.length * 0.025;
-                  return Transform.rotate(
-                    angle: secs * freq * 2 * pi + _spinPhaseOffset,
-                    child: child,
-                  );
-                },
-                child: disc,
-              )
-            : disc,
+      child: Center(
+        child: SizedBox(
+          width: discSize,
+          height: discSize,
+          child: discWidget,
+        ),
       ),
     );
   }
@@ -842,58 +984,47 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     }
   }
 
-  Widget _buildOverlay({required bool isGameOver}) {
+  Widget _buildOverlay() {
     final modeRecord = _records[_gameOverDifficulty] ?? 0;
     final modeName   = _difficultyName(_gameOverDifficulty);
-    final scoreLines = isGameOver
-        ? 'You reached level ${_sequence.length}\nScore: $_score'
-            '${_isNewRecord ? '\n🏆 New record for $modeName mode: $_score' : (modeRecord > 0 ? '\n$modeName mode record: $modeRecord' : '')}'
-        : 'Repeat the sequence!';
-    final subtitle = scoreLines;
-    final buttonLabel = isGameOver ? 'TRY AGAIN' : 'START';
+    final scoreLines = 'You reached level ${_sequence.length}\nScore: $_score'
+        '${_isNewRecord ? '\n🏆 New record for $modeName mode: $_score' : (modeRecord > 0 ? '\n$modeName mode record: $modeRecord' : '')}';
 
-    final innerContent = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (isGameOver) _buildGameOverTitle() else _buildOverlayTitle(),
-              const SizedBox(height: 20),
-              Text(
-                subtitle,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: Colors.white60,
-                  height: 1.6,
+    return Container(
+      color: const Color(0xED1A1A2A),
+      child: Center(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildGameOverTitle(),
+                const SizedBox(height: 20),
+                Text(
+                  scoreLines,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 16, color: Colors.white60, height: 1.6),
                 ),
-              ),
-              const SizedBox(height: 28),
-              if (!isGameOver) _buildIntroLights(),
-              const SizedBox(height: 20),
-              if (!isGameOver) _buildDifficultySelector(),
-              const SizedBox(height: 24),
-              GestureDetector(
-                onTap: isGameOver ? _goToIdle : _startGame,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 52, vertical: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(36),
-                    border: Border.all(color: Colors.white70, width: 1.5),
-                  ),
-                  child: Text(
-                    buttonLabel,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                      letterSpacing: 3,
+                const SizedBox(height: 28),
+                GestureDetector(
+                  onTap: _goToIdle,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 52, vertical: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(36),
+                      border: Border.all(color: Colors.white70, width: 1.5),
+                    ),
+                    child: const Text(
+                      'TRY AGAIN',
+                      style: TextStyle(
+                        fontSize: 20, fontWeight: FontWeight.w800,
+                        color: Colors.white, letterSpacing: 3,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              if (isGameOver) ...[
                 const SizedBox(height: 24),
                 _buildColorLegend(),
                 const SizedBox(height: 20),
@@ -902,8 +1033,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   child: const Text(
                     '☕  Support the dev',
                     style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.white38,
+                      fontSize: 13, color: Colors.white38,
                       decoration: TextDecoration.underline,
                       decorationColor: Colors.white24,
                       letterSpacing: 1,
@@ -911,56 +1041,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   ),
                 ),
               ],
-              if (!isGameOver) ...[
-                const SizedBox(height: 20),
-                GestureDetector(
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const HowToPlayPage()),
-                  ),
-                  child: const Text(
-                    'How to play',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.white38,
-                      decoration: TextDecoration.underline,
-                      decorationColor: Colors.white24,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        );
-
-    if (isGameOver) {
-      return Container(color: const Color(0xED222222), child: Center(child: innerContent));
-    }
-
-    // Idle: gradient is decorative only — touches pass through to the buttons.
-    return Stack(
-      children: [
-        IgnorePointer(
-          child: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                stops: [0.0, 0.52, 0.80],
-                colors: [
-                  Color(0xF2000000),
-                  Color(0xE0000000),
-                  Colors.transparent,
-                ],
-              ),
             ),
           ),
         ),
-        Align(
-          alignment: const Alignment(0, -0.52),
-          child: innerContent,
-        ),
-      ],
+      ),
     );
   }
 

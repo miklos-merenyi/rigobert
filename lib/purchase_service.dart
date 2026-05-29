@@ -15,7 +15,7 @@ const kAllProductIds = {kProductUnlock, kProductTipS, kProductTipM, kProductTipL
 // ── SharedPreferences keys ────────────────────────────────────────────────────
 const _kUnlocked     = 'hard_mode_unlocked';
 const _kTrialsUsed   = 'hard_mode_trials_used';
-const kFreeTrials    = 3;
+const kFreeTrials    = 5;
 
 // ── PurchaseService ───────────────────────────────────────────────────────────
 

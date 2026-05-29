@@ -43,17 +43,7 @@ class ColorButton extends StatelessWidget {
                   ]
                 : [],
           ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: isPressed ? Colors.white : Colors.white38,
-                letterSpacing: 1.5,
-              ),
-            ),
-          ),
+          child: const SizedBox.shrink(),
         ),
       ),
     );
