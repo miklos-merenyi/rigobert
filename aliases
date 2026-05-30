@@ -1,0 +1,10 @@
+alias stage1="bundletool build-apks \
+  --bundle=build/app/outputs/bundle/release/app-release.aab \
+  --output=rigobert.apks \
+  --ks=rigobert.jks \
+  --ks-key-alias=rigobert \
+  --ks-pass=pass:ahGhi5ohcaelagah \
+  --key-pass=pass:ahGhi5ohcaelagah"
+alias stage2="bundletool install-apks --apks=rigobert.apks --device-id adb-ZY22H8LXMZ-sDQmoK._adb-tls-connect._tcp"
+
+
