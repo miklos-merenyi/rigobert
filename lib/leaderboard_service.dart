@@ -10,10 +10,10 @@ const _kIosFloat   = 'com.rigobert.rigobertSays.leaderboard_float';
 const _kIosSpin    = 'com.rigobert.rigobertSays.leaderboard_spin';
 const _kIosBoth    = 'com.rigobert.rigobertSays.leaderboard_both';
 
-const _kAndroidStill = 'CgkI_leaderboard_still';   // replace with Play Console IDs
-const _kAndroidFloat = 'CgkI_leaderboard_float';
-const _kAndroidSpin  = 'CgkI_leaderboard_spin';
-const _kAndroidBoth  = 'CgkI_leaderboard_both';
+const _kAndroidStill = 'CgkIwuSWp_0SEAIQAg';   // replace with Play Console IDs
+const _kAndroidFloat = 'CgkIwuSWp_0SEAIQAQ';
+const _kAndroidSpin  = 'CgkIwuSWp_0SEAIQAw';
+const _kAndroidBoth  = 'CgkIwuSWp_0SEAIQBA';
 
 // Minimum score worth posting to the global board.
 const kLeaderboardMinScore = 10;

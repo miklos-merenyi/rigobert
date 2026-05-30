@@ -1,4 +1,4 @@
-package com.rigobert.rigobert_says
+package com.rigobert.rigobertSays
 
 import io.flutter.embedding.android.FlutterActivity
 
