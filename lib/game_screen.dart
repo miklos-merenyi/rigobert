@@ -735,6 +735,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     return Scaffold(
       backgroundColor: const Color(0xFF33334A),
       body: SafeArea(
+        left: false,
+        right: false,
         child: LayoutBuilder(
           builder: (context, constraints) {
             if (_phase == GamePhase.idle) {
