@@ -48,7 +48,7 @@ class SoundPlayer {
 
   SoundPlayer() {
     for (final p in [_comboPlayer, _melodyPlayer, _failPlayer, _r2d2Player]) {
-      p.setReleaseMode(ReleaseMode.stop);
+      p.setReleaseMode(ReleaseMode.release);
       p.setVolume(0.9);
     }
   }
@@ -68,7 +68,6 @@ class SoundPlayer {
     final asset = _kComboAsset[_key(combo)];
     if (asset == null) return;
     _comboActive = true;
-    await _comboPlayer.stop();
     await _comboPlayer.play(AssetSource(asset));
     Future.delayed(const Duration(milliseconds: _slotMs), _onComboSlotEnd);
   }
@@ -99,7 +98,6 @@ class SoundPlayer {
       if ((entry.key - frequency).abs() < 1.0) { asset = entry.value; break; }
     }
     if (asset == null) return;
-    await _melodyPlayer.stop();
     await _melodyPlayer.play(AssetSource(asset));
   }
 
@@ -111,13 +109,11 @@ class SoundPlayer {
     _comboQueue.clear();
     _comboActive = false;
     await _comboPlayer.stop();
-    await _failPlayer.stop();
     await _failPlayer.play(AssetSource('sounds/fail.mp3'));
   }
 
   Future<void> playR2D2Beep() async {
     final i = _r2d2Rng.nextInt(16);
-    await _r2d2Player.stop();
     _r2d2Player.play(AssetSource('sounds/r2d2_$i.mp3'));
   }
 
