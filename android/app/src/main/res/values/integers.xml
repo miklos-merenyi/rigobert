@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <!-- Play Games Services App ID - get this from Google Play Console -->
-    <integer name="google_play_games_app_id">652111884866</integer>
-</resources>
