@@ -39,6 +39,15 @@ dependencies:
   google_fonts: ^8.1.0
   in_app_purchase: ^3.2.0
   games_services: ^5.0.0
+  soundpool: ^2.4.0
+
+# Vendored, locally-patched soundpool: upstream 2.4.1 is unmaintained and still
+# references Flutter's removed v1 embedding `Registrar` API, which fails to
+# compile on current Flutter. third_party/soundpool removes that dead code
+# (the plugin already implements the v2 FlutterPlugin API).
+dependency_overrides:
+  soundpool:
+    path: third_party/soundpool
 
 dev_dependencies:
   flutter_test:
