@@ -78,6 +78,11 @@ class SoundPlayer {
     _loading = _preload();
   }
 
+  /// Completes once every instrument clip has been decoded into the pool.
+  /// The intro waits on this so its opening notes aren't dropped or bunched
+  /// into a chorus while the samples are still loading.
+  Future<void> get ready => _loading ?? Future<void>.value();
+
   /// Decode every instrument clip into the pool once, up front.
   Future<void> _preload() async {
     for (final asset in _kComboAsset.values) {

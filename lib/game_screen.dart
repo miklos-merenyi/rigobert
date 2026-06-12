@@ -117,7 +117,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       duration: const Duration(seconds: 5),
     )..repeat(); // runs continuously — never reset so position is always smooth
     _loadRecord();
-    _runIntroLoop(_generation);
+    // Start the intro only after the first frame is on screen AND the sound
+    // engine has finished decoding its clips. Kicking it off synchronously here
+    // drops the opening notes (and bunches them into a chorus) because the
+    // samples are still loading when the first notes fire.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _startIntroWhenReady(_generation));
     LeaderboardService().silentSignIn();
     if (Platform.isAndroid) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowScreenshotTip());
@@ -205,6 +209,14 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       return (true, submitted);
     }
     return (false, false);
+  }
+
+  /// Waits for the sound engine to finish loading, then starts the intro.
+  /// Scheduled from a post-frame callback so the idle screen is visible first.
+  Future<void> _startIntroWhenReady(int gen) async {
+    await _sound.ready;
+    if (!mounted || _generation != gen) return;
+    _runIntroLoop(gen);
   }
 
   Future<void> _runIntroLoop(int gen) async {
