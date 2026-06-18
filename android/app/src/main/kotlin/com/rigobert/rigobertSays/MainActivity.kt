@@ -1,7 +1,6 @@
 package com.rigobert.rigobertSays
 
 import android.os.Bundle
-import androidx.activity.enableEdgeToEdge
 import androidx.core.view.WindowCompat
 import io.flutter.embedding.android.FlutterActivity
 
