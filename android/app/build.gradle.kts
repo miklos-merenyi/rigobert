@@ -23,7 +23,7 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
+        jvmTarget = "17"
     }
 
     defaultConfig {
@@ -48,6 +48,11 @@ android {
             signingConfig = signingConfigs.getByName("release")
         }
     }
+}
+
+// Dependencies should be declared here in Gradle Kotlin DSL
+dependencies {
+    implementation("androidx.activity:activity-compose:1.8.0")
 }
 
 flutter {
