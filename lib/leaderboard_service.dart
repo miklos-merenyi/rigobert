@@ -21,6 +21,10 @@ const kLeaderboardMinScore = 10;
 // SharedPreferences key for the opt-out flag.
 const kLeaderboardOptOutKey = 'leaderboard_opted_out';
 
+// Persisted once the player has successfully signed in at least once.
+// Used to suppress the account-picker on subsequent cold starts.
+const kLeaderboardHasSignedInKey = 'leaderboard_has_signed_in';
+
 // ── LeaderboardService ────────────────────────────────────────────────────────
 
 class LeaderboardService extends ChangeNotifier {
@@ -28,11 +32,14 @@ class LeaderboardService extends ChangeNotifier {
   factory LeaderboardService() => _instance;
   LeaderboardService._();
 
-  bool _signedIn   = false;
-  bool _optedOut   = false;
+  bool _signedIn      = false;
+  bool _optedOut      = false;
+  bool _hasSignedIn   = false; // persisted across launches
 
   bool get isSignedIn  => _signedIn;
   bool get optedOut    => _optedOut;
+  /// True if the player has ever successfully signed in (cached on device).
+  bool get hasSignedIn => _hasSignedIn;
   /// True when submission is active (signed in, not opted out).
   bool get isActive    => _signedIn && !_optedOut;
 
@@ -40,7 +47,8 @@ class LeaderboardService extends ChangeNotifier {
 
   Future<void> loadPrefs() async {
     final prefs = await SharedPreferences.getInstance();
-    _optedOut = prefs.getBool(kLeaderboardOptOutKey) ?? false;
+    _optedOut    = prefs.getBool(kLeaderboardOptOutKey)    ?? false;
+    _hasSignedIn = prefs.getBool(kLeaderboardHasSignedInKey) ?? false;
     notifyListeners();
   }
 
@@ -56,8 +64,11 @@ class LeaderboardService extends ChangeNotifier {
   // ── Sign-in ───────────────────────────────────────────────────────────────
 
   /// Called once at app start — silent, no UI shown on failure.
+  /// Only attempts sign-in if the player has signed in before; otherwise
+  /// the Android account picker would appear on every cold start.
   Future<void> silentSignIn() async {
     await loadPrefs();
+    if (!_hasSignedIn) return; // never prompted yet — wait for first record
     try {
       await GamesServices.signIn();
       _signedIn = true;
@@ -68,11 +79,15 @@ class LeaderboardService extends ChangeNotifier {
   }
 
   /// Tries an interactive sign-in (shows the platform UI).
+  /// Persists the result so future cold starts can sign in silently.
   /// Returns true if the player is now signed in.
   Future<bool> interactiveSignIn() async {
     try {
       await GamesServices.signIn();
-      _signedIn = true;
+      _signedIn    = true;
+      _hasSignedIn = true;
+      final prefs  = await SharedPreferences.getInstance();
+      await prefs.setBool(kLeaderboardHasSignedInKey, true);
       notifyListeners();
     } catch (e) {
       debugPrint('LeaderboardService: interactive sign-in failed ($e)');

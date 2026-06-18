@@ -15,6 +15,35 @@ enum GamePhase { idle, showingSequence, playerInput, gameOverFlash, gameOver }
 
 enum Difficulty { normal, floating, spinning, both }
 
+// ── Debug logging ─────────────────────────────────────────────────────────
+// Set false to silence. Logs go to the Flutter console (adb logcat | grep flutter).
+const bool kInputDebug = true;
+
+/// Compact wall-clock timestamp "HH:mm:ss.mmm" for correlating input & sound.
+String _ts() => DateTime.now().toIso8601String().split('T').last;
+
+/// Short, sorted rendering of a colour set, e.g. {red,blue} → "R+B".
+String _fmtSet(Set<GameColor> s) {
+  if (s.isEmpty) return '∅';
+  final sorted = s.toList()..sort((a, b) => a.index - b.index);
+  return sorted.map((c) => c.name[0].toUpperCase()).join('+');
+}
+
+/// Human-readable mixed-colour name for a button set.
+String _colorName(Set<GameColor> s) {
+  final r = s.contains(GameColor.red);
+  final g = s.contains(GameColor.green);
+  final b = s.contains(GameColor.blue);
+  if (r && g && b) return 'WHITE';
+  if (r && g)      return 'YELLOW';
+  if (r && b)      return 'MAGENTA';
+  if (g && b)      return 'CYAN';
+  if (r)           return 'RED';
+  if (g)           return 'GREEN';
+  if (b)           return 'BLUE';
+  return '∅';
+}
+
 // Opening melody – from intro.mid (Pictures at an Exhibition, 104 BPM).
 // Each entry: (frequency_hz, duration_ms, button_highlight).
 // Pitches:  F4=349.23 G4=392.00 Bb4=466.16 C5=523.25 D5=587.33 F5=698.46
@@ -491,6 +520,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       final step = _sequence[i];
       final isLast = i == _sequence.length - 1;
       if (!mounted || _generation != gen) return;
+      if (kInputDebug) debugPrint('[SEQ  ${_ts()}] PLAYED ${_colorName(step)}');
       setState(() {
         _displayColor = mixColors(step);
         _displayOpacity = 1.0;
@@ -549,7 +579,14 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _sound.stopCombo();
     final snapshot = Set.of(newPressed);
     _chordTimer = Timer(const Duration(milliseconds: 80), () {
-      _sound.playCombo(_pressedButtons.isNotEmpty ? _pressedButtons : snapshot);
+      final toPlay = _pressedButtons.isNotEmpty ? _pressedButtons : snapshot;
+      if (kInputDebug) {
+        final drifted = !setEquals(toPlay, snapshot);
+        debugPrint('[SOUND ${_ts()}] idle chord-fire  snapshot=${_fmtSet(snapshot)} '
+            'current=${_fmtSet(_pressedButtons)} → play ${_fmtSet(toPlay)}'
+            '${drifted ? '  ⚠ DRIFTED from snapshot' : ''}');
+      }
+      _sound.playCombo(toPlay);
     });
   }
 
@@ -558,16 +595,39 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     if (_phase != GamePhase.playerInput) return;
     _startInputTimer();
     final newPressed = Set<GameColor>.from(_pressedButtons)..add(color);
-    _handlePressChange(newPressed);
+    if (kInputDebug) {
+      debugPrint('[INPUT ${_ts()}] DOWN ${color.name[0].toUpperCase()}  '
+          'pressed→ ${_fmtSet(newPressed)}  step=$_playerStep');
+    }
 
-    // Chord window: on every new press, cancel the pending timer AND stop any
-    // sound that already fired from a previous press in this gesture.
-    // This ensures the sound only plays once the full chord is known.
+    // Update visual state immediately so the button lights up,
+    // but defer match evaluation to the chord timer below.
+    if (newPressed.isNotEmpty) _hasPressedThisStep = true;
+    setState(() {
+      _pressedButtons = newPressed;
+      _highlightedButtons = Set.of(newPressed);
+      _displayColor = mixColors(newPressed);
+      _displayOpacity = 0.5;
+    });
+
+    // Chord window: cancel pending timer and stop any sound that fired from a
+    // previous press in this gesture. Sound AND match evaluation fire together
+    // once the full chord is known.
     _chordTimer?.cancel();
     _sound.stopCombo();
     final snapshot = Set.of(newPressed);
     _chordTimer = Timer(const Duration(milliseconds: 80), () {
-      _sound.playCombo(_pressedButtons.isNotEmpty ? _pressedButtons : snapshot);
+      if (kInputDebug) {
+        debugPrint('[SOUND ${_ts()}] chord-fire  snapshot=${_fmtSet(snapshot)} '
+            'current=${_fmtSet(_pressedButtons)}');
+      }
+      // Always use the snapshot: it captures which buttons were down when the
+      // last finger landed, which is the player's intended chord. Fingers
+      // releasing early within the window are human imprecision, not a mistake.
+      _sound.playCombo(snapshot);
+      if (_phase == GamePhase.playerInput && !_stepMatched) {
+        _handlePressChange(snapshot);
+      }
     });
   }
 
@@ -583,26 +643,44 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     }
     if (_phase != GamePhase.playerInput) return;
     final newPressed = Set<GameColor>.from(_pressedButtons)..remove(color);
-    // No sound on release — only down-events queue notes.
-    // The current note rings out naturally.
-    _handlePressChange(newPressed);
-  }
+    if (kInputDebug) {
+      debugPrint('[INPUT ${_ts()}] UP   ${color.name[0].toUpperCase()}  '
+          'pressed→ ${_fmtSet(newPressed)}  step=$_playerStep matched=$_stepMatched');
+    }
 
-  void _handlePressChange(Set<GameColor> pressed) {
     if (_stepMatched) {
+      // Match already confirmed — just track release and advance when all up.
       setState(() {
-        _pressedButtons = pressed;
-        _highlightedButtons = Set.of(pressed);
+        _pressedButtons = newPressed;
+        _highlightedButtons = Set.of(newPressed);
       });
-      if (pressed.isEmpty) _advanceStep();
+      if (newPressed.isEmpty) _advanceStep();
       return;
     }
 
+    // Update visual state.
+    setState(() {
+      _pressedButtons = newPressed;
+      _highlightedButtons = Set.of(newPressed);
+      _displayColor = newPressed.isEmpty ? Colors.black : mixColors(newPressed);
+      _displayOpacity = newPressed.isEmpty ? 0.0 : 0.5;
+    });
+
+    // If the chord timer is still pending it will evaluate with the updated
+    // _pressedButtons. Only evaluate here if the timer already fired (e.g. the
+    // player held long enough, then released — catches the INCOMPLETE case).
+    if (_chordTimer == null || !_chordTimer!.isActive) {
+      _handlePressChange(newPressed);
+    }
+  }
+
+  void _handlePressChange(Set<GameColor> pressed) {
     if (pressed.isNotEmpty) _hasPressedThisStep = true;
 
+    // Do NOT overwrite _pressedButtons here — DOWN/UP already keep it current.
+    // Using the stale chord-timer snapshot would restore phantom buttons after
+    // a quick tap (finger up before 80 ms chord window expires).
     setState(() {
-      _pressedButtons = pressed;
-      _highlightedButtons = Set.of(pressed);
       _displayColor = pressed.isEmpty ? Colors.black : mixColors(pressed);
       _displayOpacity = pressed.isEmpty ? 0.0 : 0.5;
     });
@@ -610,11 +688,19 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     final required = _sequence[_playerStep];
     if (setEquals(pressed, required)) {
       _cancelInputTimer(); // step matched — no timeout needed while releasing
+      if (kInputDebug) {
+        debugPrint('[INPUT ${_ts()}] DETECTED ${_colorName(pressed)}');
+        debugPrint('[INPUT ${_ts()}] ✓ MATCH step=$_playerStep '
+            'required=${_fmtSet(required)} pressed=${_fmtSet(pressed)} score→${_score + 1}');
+      }
       setState(() {
         _stepMatched = true;
         _displayOpacity = 1.0;
         _score++;
       });
+      // Quick-tap case: finger(s) already released before the chord timer fired.
+      // UP saw _stepMatched=false so didn't advance — do it now.
+      if (_pressedButtons.isEmpty) _advanceStep();
       return;
     }
 
@@ -622,11 +708,19 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     // Don't wait for release — this prevents a wrong+right chord from slipping
     // through when the wrong finger lifts before the check runs.
     if (pressed.isNotEmpty && !required.containsAll(pressed)) {
+      if (kInputDebug) {
+        debugPrint('[INPUT ${_ts()}] ✗ WRONG step=$_playerStep '
+            'required=${_fmtSet(required)} pressed=${_fmtSet(pressed)} → game over');
+      }
       _gameOver();
       return;
     }
 
     if (pressed.isEmpty && _hasPressedThisStep) {
+      if (kInputDebug) {
+        debugPrint('[INPUT ${_ts()}] ✗ INCOMPLETE step=$_playerStep '
+            'required=${_fmtSet(required)} released empty → game over');
+      }
       _gameOver();
     }
   }
@@ -708,10 +802,73 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _showRecordCongrats() async {
-    final score      = _score;
-    final modeName   = _difficultyName(_gameOverDifficulty);
-    final submitted  = _recordSubmitted;
-    final lb         = LeaderboardService();
+    final score     = _score;
+    final modeName  = _difficultyName(_gameOverDifficulty);
+    bool  submitted = _recordSubmitted;
+    final lb        = LeaderboardService();
+
+    // First publishable record and player hasn't signed in yet → prompt once.
+    if (score >= kLeaderboardMinScore && !lb.isSignedIn && !lb.optedOut) {
+      if (!mounted) return;
+      final proceed = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          backgroundColor: const Color(0xFF1A1A2A),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Submit to leaderboard?',
+              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
+          content: const Text(
+            'You\'ve reached a score worth posting! Sign in with Play Games to submit it to the global leaderboard.',
+            style: TextStyle(color: Colors.white60, fontSize: 13, height: 1.6),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('No thanks', style: TextStyle(color: Colors.white38)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Sign in', style: TextStyle(color: Colors.white70)),
+            ),
+          ],
+        ),
+      );
+      if (proceed == true) {
+        await lb.interactiveSignIn();
+        if (lb.isSignedIn) {
+          submitted = await lb.submitScore(modeName.toLowerCase(), score);
+        }
+      } else if (proceed == false) {
+        // Player explicitly declined — offer opt-out so they aren't asked again.
+        if (!mounted) return;
+        final optOut = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            backgroundColor: const Color(0xFF1A1A2A),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Text('Turn off leaderboards?',
+                style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700)),
+            content: const Text(
+              'You can always re-enable leaderboards later from Settings.',
+              style: TextStyle(color: Colors.white60, fontSize: 13, height: 1.6),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Keep on', style: TextStyle(color: Colors.white38)),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Turn off', style: TextStyle(color: Colors.white54)),
+              ),
+            ],
+          ),
+        );
+        if (optOut == true) await lb.setOptedOut(true);
+      }
+      if (!mounted) return;
+    }
+
     await showGeneralDialog<void>(
       context: context,
       barrierDismissible: true,
