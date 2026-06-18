@@ -53,3 +53,5 @@ android/key.properties
 *.jks
 *.keystore
 rigobert.apks
+
+android/build/*
