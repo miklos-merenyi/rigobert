@@ -1088,6 +1088,20 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                       child: const Icon(Icons.settings_outlined,
                           size: 18, color: Colors.white24),
                     ),
+                    const SizedBox(width: 20),
+                    GestureDetector(
+                      onTap: _openTipJar,
+                      child: const Text(
+                        '☕  Support the dev',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.white38,
+                          decoration: TextDecoration.underline,
+                          decorationColor: Colors.white24,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ],
