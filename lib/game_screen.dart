@@ -96,6 +96,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   bool _hasPressedThisStep = false;
   int _score = 0;
   bool _recordSubmitted = false;
+  String _gameOverMessage = '';
   // Per-mode personal records keyed by Difficulty
   final Map<Difficulty, int> _records = {
     Difficulty.normal:   0,
@@ -139,7 +140,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(seconds: 5),
     )..addStatusListener((s) {
-      if (s == AnimationStatus.completed && mounted) _gameOver();
+      if (s == AnimationStatus.completed && mounted) _gameOver(timeout: true);
     });
     _diffCtrl = AnimationController(
       vsync: this,
@@ -323,6 +324,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       _floatPhaseY = 0.0;
       _spinPhaseOffset = 0.0;
       _floatLevel = 0;
+      _gameOverMessage = '';
     });
     _runIntroLoop(_generation);
   }
@@ -712,7 +714,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         debugPrint('[INPUT ${_ts()}] ✗ WRONG step=$_playerStep '
             'required=${_fmtSet(required)} pressed=${_fmtSet(pressed)} → game over');
       }
-      _gameOver();
+      _gameOver(pressed: pressed);
       return;
     }
 
@@ -721,7 +723,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         debugPrint('[INPUT ${_ts()}] ✗ INCOMPLETE step=$_playerStep '
             'required=${_fmtSet(required)} released empty → game over');
       }
-      _gameOver();
+      _gameOver(pressed: const {});
     }
   }
 
@@ -741,10 +743,28 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     }
   }
 
-  void _gameOver() {
+  void _gameOver({Set<GameColor>? pressed, bool timeout = false}) {
     _cancelInputTimer();
     _sound.playFail();
     final diffAtGameOver = _difficulty;
+
+    final expected = (_playerStep < _sequence.length) ? _sequence[_playerStep] : null;
+    String message;
+    if (timeout) {
+      message = 'You did not press any button in time';
+    } else if (pressed != null && pressed.isNotEmpty && expected != null) {
+      final pressedName = _colorName(pressed);
+      final pressedComp = _colorComponents(pressed);
+      final expectedName = _colorName(expected);
+      final expectedComp = _colorComponents(expected);
+      message = 'You pressed $pressedName ($pressedComp),\nbut $expectedName ($expectedComp) was expected';
+    } else if (expected != null) {
+      final expectedName = _colorName(expected);
+      final expectedComp = _colorComponents(expected);
+      message = 'You released too early — $expectedName ($expectedComp) was expected';
+    } else {
+      message = '';
+    }
     _saveRecord(_score, diffAtGameOver).then((result) {
       final (wasNew, submitted) = result;
       if (mounted) {
@@ -761,6 +781,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       _displayOpacity = 0.0;
       _isNewRecord = false;
       _gameOverDifficulty = diffAtGameOver;
+      _gameOverMessage = message;
     });
     _runGameOverFlash(_generation);
     // Count rounds and maybe show tip prompt after the flash.
@@ -1319,6 +1340,25 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     );
   }
 
+  static String _colorName(Set<GameColor> combo) => switch (combo.length) {
+    1 when combo.contains(GameColor.red)   => 'Red',
+    1 when combo.contains(GameColor.green) => 'Green',
+    1 when combo.contains(GameColor.blue)  => 'Blue',
+    2 when combo.containsAll({GameColor.red,   GameColor.green}) => 'Yellow',
+    2 when combo.containsAll({GameColor.red,   GameColor.blue})  => 'Magenta',
+    2 when combo.containsAll({GameColor.green, GameColor.blue})  => 'Cyan',
+    _ => 'White',
+  };
+
+  static String _colorComponents(Set<GameColor> combo) {
+    final parts = [
+      if (combo.contains(GameColor.red))   'R',
+      if (combo.contains(GameColor.green)) 'G',
+      if (combo.contains(GameColor.blue))  'B',
+    ];
+    return parts.join('+');
+  }
+
   static String _difficultyName(Difficulty d) {
     switch (d) {
       case Difficulty.normal:   return 'STILL';
@@ -1350,6 +1390,22 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 16, color: Colors.white60, height: 1.6),
                 ),
+                if (_gameOverMessage.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.white12),
+                    ),
+                    child: Text(
+                      _gameOverMessage,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 13, color: Colors.white38, height: 1.6),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 28),
                 GestureDetector(
                   onTap: _goToIdle,

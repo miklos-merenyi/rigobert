@@ -1,15 +1,24 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // ── Product IDs ───────────────────────────────────────────────────────────────
-// Register these exact IDs in App Store Connect / Google Play Console.
-const kProductTipS = 'com.rigobert.rigobertSays.tip_small';   // ~$0.99
-const kProductTipM = 'com.rigobert.rigobertSays.tip_medium';  // ~$2.99
-const kProductTipL = 'com.rigobert.rigobertSays.tip_large';   // ~$4.99
+// iOS (App Store Connect) uses reverse-domain IDs; Android (Play Console) does not allow dots.
+const _kIosTipS = 'com.rigobert.rigobertSays.tip_small';
+const _kIosTipM = 'com.rigobert.rigobertSays.tip_medium';
+const _kIosTipL = 'com.rigobert.rigobertSays.tip_large';
 
-const kAllProductIds = {kProductTipS, kProductTipM, kProductTipL};
+const _kAndroidTipS = 'tip_small';
+const _kAndroidTipM = 'tip_medium';
+const _kAndroidTipL = 'tip_large';
+
+final kProductTipS = Platform.isIOS ? _kIosTipS : _kAndroidTipS;
+final kProductTipM = Platform.isIOS ? _kIosTipM : _kAndroidTipM;
+final kProductTipL = Platform.isIOS ? _kIosTipL : _kAndroidTipL;
+
+final kAllProductIds = {kProductTipS, kProductTipM, kProductTipL};
 
 // Show tip prompt every N rounds (as long as the player hasn't tipped).
 const kTipPromptEvery = 20;
