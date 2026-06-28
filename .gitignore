@@ -55,3 +55,6 @@ android/key.properties
 rigobert.apks
 
 android/build/*
+
+# Vendored plugin build artifacts
+third_party/**/.gradle/
