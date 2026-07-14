@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Get Rigobert Says</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #12121e;
+      color: #ccc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .card {
+      max-width: 420px;
+      width: 100%;
+      text-align: center;
+      background: #1a1a2a;
+      border: 1px solid #ffffff14;
+      border-radius: 20px;
+      padding: 40px 32px;
+    }
+
+    .crown { font-size: 52px; display: block; margin-bottom: 16px; }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: 4px;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: #ffffff44;
+      letter-spacing: 1px;
+      margin-bottom: 32px;
+    }
+
+    .spinner {
+      width: 32px; height: 32px;
+      margin: 8px auto 24px;
+      border: 3px solid #ffffff18;
+      border-top-color: #3366ff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .store-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: .6rem;
+      width: 100%;
+      padding: 14px 16px;
+      border-radius: 12px;
+      background: #3366ff;
+      color: #fff;
+      font-weight: 700;
+      font-size: 15px;
+      text-decoration: none;
+      margin-bottom: 12px;
+    }
+    .store-btn:hover { background: #4477ff; }
+
+    .qr-wrap {
+      background: #fff;
+      border-radius: 16px;
+      padding: 16px;
+      display: inline-block;
+      margin-bottom: 20px;
+    }
+    .qr-wrap img { display: block; width: 220px; height: 220px; }
+
+    .desktop-text { color: #aaa; font-size: 14px; margin-bottom: 24px; }
+
+    .links { display: flex; gap: 12px; justify-content: center; }
+    .links a {
+      flex: 1;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: #ffffff0d;
+      border: 1px solid #ffffff18;
+      color: #ccc;
+      text-decoration: none;
+      font-size: 13px;
+    }
+    .links a:hover { background: #ffffff18; }
+
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <span class="crown">👑</span>
+    <h1>
+      <span style="color:#ff3333">R</span><span style="color:#ff8800">I</span><span style="color:#33ff50">G</span><span style="color:#ffff00">O</span><span style="color:#3366ff">B</span><span style="color:#cc44ff">E</span><span style="color:#ff3333">R</span><span style="color:#ffffff">T</span>
+      <span style="color:#00ffff">S</span><span style="color:#ffff00">A</span><span style="color:#ff00ff">Y</span><span style="color:#00ffff">S</span>
+    </h1>
+    <p class="subtitle">Get the game</p>
+
+    <!-- Mobile: redirecting -->
+    <div id="mobile-view" class="hidden">
+      <div class="spinner"></div>
+      <p class="desktop-text" id="mobile-text">Opening the store&hellip;</p>
+      <a id="store-btn" class="store-btn" href="#">Open store page</a>
+    </div>
+
+    <!-- Desktop: QR code -->
+    <div id="desktop-view" class="hidden">
+      <div class="qr-wrap">
+        <img id="qr-img" alt="QR code linking to this page">
+      </div>
+      <p class="desktop-text">Scan with your phone to get Rigobert Says</p>
+      <div class="links">
+        <a id="ios-link" href="#">iOS</a>
+        <a id="android-link" href="#">Android</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Fill in your numeric Apple App ID once the App Store Connect record
+    // has one assigned (visible on the app's General Information page).
+    var APPLE_APP_ID = '6790704937';
+    var IOS_URL = 'https://apps.apple.com/app/id' + APPLE_APP_ID;
+    var ANDROID_URL = 'https://play.google.com/store/apps/details?id=com.rigobert.rigobertSays';
+
+    var ua = navigator.userAgent;
+    var isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+    var isAndroid = /Android/.test(ua);
+
+    document.getElementById('ios-link').href = IOS_URL;
+    document.getElementById('android-link').href = ANDROID_URL;
+
+    if (isIOS || isAndroid) {
+      var target = isIOS ? IOS_URL : ANDROID_URL;
+      document.getElementById('mobile-view').classList.remove('hidden');
+      document.getElementById('store-btn').href = target;
+      window.location.href = target;
+      setTimeout(function () {
+        document.querySelector('.spinner').style.display = 'none';
+        document.getElementById('mobile-text').textContent =
+          "Didn't redirect? Tap the button below.";
+      }, 1200);
+    } else {
+      document.getElementById('desktop-view').classList.remove('hidden');
+      var selfUrl = window.location.href;
+      document.getElementById('qr-img').src =
+        'https://api.qrserver.com/v1/create-qr-code/?size=400x400&margin=0&data=' +
+        encodeURIComponent(selfUrl);
+    }
+  </script>
+
+</body>
+</html>
