@@ -67,8 +67,21 @@ class PurchaseService extends ChangeNotifier {
 
     _sub = _iap.purchaseStream.listen(_onPurchaseUpdate);
 
-    final resp = await _iap.queryProductDetails(kAllProductIds);
-    _products = {for (final p in resp.productDetails) p.id: p};
+    debugPrint('Querying product IDs: $kAllProductIds');
+    try {
+      final resp = await _iap.queryProductDetails(kAllProductIds);
+      debugPrint('IAP query response: ${resp.productDetails.length} products found');
+      for (final p in resp.productDetails) {
+        debugPrint('IAP product found: ${p.id}');
+      }
+      if (resp.error != null) {
+        debugPrint('IAP query error: ${resp.error}');
+      }
+      _products = {for (final p in resp.productDetails) p.id: p};
+    } catch (e) {
+      debugPrint('IAP query exception: $e');
+      rethrow;
+    }
     notifyListeners();
   }
 
@@ -98,11 +111,26 @@ class PurchaseService extends ChangeNotifier {
 
   Future<void> _buy(String productId) async {
     final details = _products[productId];
-    if (details == null) return;
+    if (details == null) {
+      debugPrint('IAP error: Product not found for ID: $productId');
+      _loadingPurchase = false;
+      notifyListeners();
+      return;
+    }
+    
     _loadingPurchase = true;
     notifyListeners();
-    final param = PurchaseParam(productDetails: details);
-    await _iap.buyConsumable(purchaseParam: param);
+    
+    try {
+      final param = PurchaseParam(productDetails: details);
+      await _iap.buyConsumable(purchaseParam: param);
+    } catch (e) {
+      debugPrint('IAP error during purchase: $e');
+      rethrow;
+    } finally {
+      _loadingPurchase = false;
+      notifyListeners();
+    }
   }
 
   void _onPurchaseUpdate(List<PurchaseDetails> purchases) async {
@@ -115,7 +143,11 @@ class PurchaseService extends ChangeNotifier {
           await _iap.completePurchase(p);
         }
       } else if (p.status == PurchaseStatus.error) {
+        // Provide more detailed error information
         debugPrint('IAP error: ${p.error}');
+        debugPrint('IAP error code: ${p.error?.code}');
+        debugPrint('IAP error message: ${p.error?.message}');
+        debugPrint('IAP error details: ${p.error?.details}');
       }
     }
     _loadingPurchase = false;
