@@ -1,0 +1,89 @@
+{
+  "@@locale": "es",
+
+  "startButton": "COMENZAR",
+  "tryAgainButton": "INTENTAR DE NUEVO",
+  "keepGoingButton": "SEGUIR",
+  "howToPlay": "Cómo jugar",
+  "supportTheDev": "☕  Apoya al desarrollador",
+  "viewLeaderboard": "🏆  Ver clasificación",
+
+  "watchCarefully": "Observa atentamente…",
+  "stepProgress": "Paso {current} / {total}",
+  "levelScore": "Nivel {level}   •   Puntuación: {score}",
+
+  "diffStill": "QUIETA",
+  "diffFloat": "FLOTA",
+  "diffSpin": "GIRA",
+  "diffBoth": "AMBAS",
+
+  "settingsHeader": "AJUSTES",
+  "leaderboardToggleTitle": "Clasificación",
+  "leaderboardToggleDesc": "Envía tus récords personales a la clasificación global",
+
+  "youReachedLevel": "Alcanzaste el nivel {level}\nPuntuación: {score}",
+  "newRecordLine": "🏆 Nuevo récord en modo {mode}: {score}",
+  "modeRecordLine": "Récord del modo {mode}: {score}",
+  "modeLabel": "modo {mode}",
+
+  "timeoutMessage": "No pulsaste ningún botón a tiempo",
+  "wrongPressMessage": "Pulsaste {pressed} ({pressedComp}),\npero se esperaba {expected} ({expectedComp})",
+  "earlyReleaseMessage": "Soltaste demasiado pronto — se esperaba {expected} ({expectedComp})",
+
+  "signInDialogTitle": "¿Iniciar sesión?",
+  "signInDialogBody": "Las clasificaciones funcionan con Game Center (iOS) o Play Games (Android). Inicia sesión para ver los rankings — o sáltalo si prefieres.",
+  "skipButton": "Omitir",
+  "signInButton": "Iniciar sesión",
+  "signInFailedMessage": "No se pudo iniciar sesión — inténtalo más tarde.",
+
+  "submitLeaderboardTitle": "¿Enviar a la clasificación?",
+  "submitLeaderboardBody": "¡Has alcanzado una puntuación digna de publicar! Inicia sesión con Play Games para enviarla a la clasificación global.",
+  "noThanksButton": "No, gracias",
+  "turnOffLeaderboardTitle": "¿Desactivar clasificaciones?",
+  "turnOffLeaderboardBody": "Puedes volver a activar las clasificaciones desde Ajustes.",
+  "keepOnButton": "Mantener",
+  "turnOffButton": "Desactivar",
+
+  "leaderboardNotSubmittedOff": "No enviado — clasificación desactivada",
+  "leaderboardSubmitted": "Enviado a la clasificación ✓",
+  "leaderboardNotSubmittedSignIn": "No enviado (inicia sesión para clasificarte)",
+
+  "screenshotTipHeader": "💡  Consejo",
+  "screenshotTipBody": "Algunos dispositivos Android hacen una captura cuando deslizas con tres dedos — lo que puede interrumpir accidentalmente el juego.",
+  "screenshotTipSettings": "Puedes desactivarlo en Ajustes → Funciones avanzadas → Movimientos y gestos → Captura al deslizar la palma (o similar, según tu dispositivo).",
+  "gotItButton": "Entendido",
+
+  "supportTitle": "APOYA AL DESARROLLADOR",
+  "supportBody": "Rigobert Says es gratis y sin anuncios. Si te gusta, una propina significa mucho — y detendrá estos mensajes para siempre.",
+  "tipSmall": "Propina pequeña",
+  "tipMedium": "Propina mediana",
+  "tipLarge": "Propina real",
+  "notNowButton": "Ahora no — seguir jugando",
+
+  "howToPlayTitle": "CÓMO JUGAR",
+  "howToBasicsTitle": "Lo básico",
+  "howToBasicsBody": "RIGOBERT SAYS es un juego de memoria. El disco ilumina una secuencia de botones de colores — observa con atención y repítela en el mismo orden. Cada ronda añade un paso más.",
+  "howToButtonsTitle": "Los botones",
+  "howToButtonsBody": "El disco tiene tres segmentos de colores:\n  🔴  Rojo\n  🟢  Verde\n  🔵  Azul\n\nAlgunos pasos iluminan dos o incluso los tres a la vez — debes pulsarlos simultáneamente.",
+  "howToMixingTitle": "Mezcla de colores",
+  "howToMixingBody": "Cuando varios botones se iluminan juntos, el disco mezcla sus colores:\n  🔴 + 🟢 = Amarillo\n  🔴 + 🔵 = Magenta\n  🟢 + 🔵 = Cian\n  🔴 + 🟢 + 🔵 = Blanco",
+  "howToModesTitle": "Modos de dificultad",
+  "howToModesBody": "Elige tu desafío antes de empezar:\n\n  QUIETA — el disco permanece en el centro.\n  FLOTA  — el disco se desplaza por la pantalla.\n  GIRA   — el disco rota lentamente.\n  AMBAS  — el disco flota y gira a la vez.\n\nLa velocidad aumenta conforme crece la secuencia.",
+  "howToScoringTitle": "Puntuación",
+  "howToScoringBody": "Ganas puntos por cada secuencia correcta. Tu récord personal se guarda entre sesiones — ¿puedes superarlo?",
+  "howToLeaderboardsTitle": "Clasificaciones",
+  "howToLeaderboardsBody": "Cada modo tiene su propia clasificación global — QUIETA, FLOTA, GIRA y AMBAS se clasifican por separado.\n\nLas puntuaciones se envían automáticamente cuando superas tu récord con 10 o más puntos. Las clasificaciones usan Game Center en iOS y Play Games en Android. Iniciar sesión es completamente opcional — el juego es totalmente jugable sin ello.",
+
+  "colorRed": "Rojo",
+  "colorGreen": "Verde",
+  "colorBlue": "Azul",
+  "colorYellow": "Amarillo",
+  "colorMagenta": "Magenta",
+  "colorCyan": "Cian",
+  "colorWhite": "Blanco",
+
+  "legendRedGreen": "Rojo + Verde = Amarillo",
+  "legendRedBlue": "Rojo + Azul = Magenta",
+  "legendGreenBlue": "Verde + Azul = Cian",
+  "legendAllThree": "Los tres = Blanco"
+}

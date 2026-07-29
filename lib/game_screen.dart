@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'l10n/app_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'circle_buttons.dart';
@@ -78,6 +79,26 @@ const _allCombinations = [
   {GameColor.green, GameColor.blue},
   {GameColor.red, GameColor.green, GameColor.blue},
 ];
+
+String _difficultyLabel(AppLocalizations l10n, Difficulty d) => switch (d) {
+  Difficulty.normal   => l10n.diffStill,
+  Difficulty.floating => l10n.diffFloat,
+  Difficulty.spinning => l10n.diffSpin,
+  Difficulty.both     => l10n.diffBoth,
+};
+
+String _colorLabel(AppLocalizations l10n, Set<GameColor> combo) {
+  final r = combo.contains(GameColor.red);
+  final g = combo.contains(GameColor.green);
+  final b = combo.contains(GameColor.blue);
+  if (r && g && b) return l10n.colorWhite;
+  if (r && g)      return l10n.colorYellow;
+  if (r && b)      return l10n.colorMagenta;
+  if (g && b)      return l10n.colorCyan;
+  if (r)           return l10n.colorRed;
+  if (g)           return l10n.colorGreen;
+  return l10n.colorBlue;
+}
 
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
@@ -165,6 +186,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     if (!mounted) return;
     await Future.delayed(const Duration(seconds: 2)); // let intro settle
     if (!mounted) return;
+    final l10n = AppLocalizations.of(context)!;
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: const Color(0xFF1A1A2A),
@@ -177,19 +199,19 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('💡  Tip', style: TextStyle(
+            Text(l10n.screenshotTipHeader, style: const TextStyle(
               fontSize: 12, fontWeight: FontWeight.w800,
               color: Colors.white38, letterSpacing: 2,
             )),
             const SizedBox(height: 12),
-            const Text(
-              'Some Android devices take a screenshot when you swipe with three fingers — which can accidentally interrupt the game.',
-              style: TextStyle(fontSize: 15, color: Colors.white70, height: 1.6),
+            Text(
+              l10n.screenshotTipBody,
+              style: const TextStyle(fontSize: 15, color: Colors.white70, height: 1.6),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'You can disable this in Settings → Advanced features → Motions and gestures → Palm swipe to capture (or similar, depending on your device).',
-              style: TextStyle(fontSize: 13, color: Colors.white38, height: 1.6),
+            Text(
+              l10n.screenshotTipSettings,
+              style: const TextStyle(fontSize: 13, color: Colors.white38, height: 1.6),
             ),
             const SizedBox(height: 20),
             GestureDetector(
@@ -202,8 +224,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   borderRadius: BorderRadius.circular(36),
                   border: Border.all(color: Colors.white24, width: 1.5),
                 ),
-                child: const Center(
-                  child: Text('Got it', style: TextStyle(
+                child: Center(
+                  child: Text(l10n.gotItButton, style: const TextStyle(
                     color: Colors.white70, fontWeight: FontWeight.w700,
                     letterSpacing: 1.5,
                   )),
@@ -344,29 +366,30 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         listenable: LeaderboardService(),
         builder: (ctx, _) {
           final lb = LeaderboardService();
+          final l10n = AppLocalizations.of(ctx)!;
           return Padding(
             padding: const EdgeInsets.fromLTRB(28, 24, 28, 40),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('SETTINGS', style: TextStyle(
+                Text(l10n.settingsHeader, style: const TextStyle(
                   fontSize: 11, fontWeight: FontWeight.w800,
                   color: Colors.white38, letterSpacing: 3,
                 )),
                 const SizedBox(height: 24),
                 Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Leaderboard',
-                              style: TextStyle(fontSize: 15, color: Colors.white70,
+                          Text(l10n.leaderboardToggleTitle,
+                              style: const TextStyle(fontSize: 15, color: Colors.white70,
                                   fontWeight: FontWeight.w600)),
-                          SizedBox(height: 3),
-                          Text('Submit personal records to the global leaderboard',
-                              style: TextStyle(fontSize: 12, color: Colors.white38, height: 1.4)),
+                          const SizedBox(height: 3),
+                          Text(l10n.leaderboardToggleDesc,
+                              style: const TextStyle(fontSize: 12, color: Colors.white38, height: 1.4)),
                         ],
                       ),
                     ),
@@ -424,28 +447,27 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   Future<void> _openLeaderboard() async {
     final lb = LeaderboardService();
     if (!lb.isSignedIn) {
-      // Politely ask before trying interactive sign-in.
       if (!mounted) return;
+      final l10n = AppLocalizations.of(context)!;
       final proceed = await showDialog<bool>(
         context: context,
         builder: (_) => AlertDialog(
           backgroundColor: const Color(0xFF1A1A2A),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Sign in?',
-              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
-          content: const Text(
-            'Leaderboards are powered by Game Center (iOS) or Play Games (Android). '
-            'Sign in to view rankings — or skip if you\'d rather not.',
-            style: TextStyle(color: Colors.white60, fontSize: 13, height: 1.6),
+          title: Text(l10n.signInDialogTitle,
+              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
+          content: Text(
+            l10n.signInDialogBody,
+            style: const TextStyle(color: Colors.white60, fontSize: 13, height: 1.6),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Skip', style: TextStyle(color: Colors.white38)),
+              child: Text(l10n.skipButton, style: const TextStyle(color: Colors.white38)),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Sign in', style: TextStyle(color: Colors.white70)),
+              child: Text(l10n.signInButton, style: const TextStyle(color: Colors.white70)),
             ),
           ],
         ),
@@ -454,9 +476,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       final ok = await lb.interactiveSignIn();
       if (!ok) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Could not sign in — try again later.'),
-            backgroundColor: Color(0xFF2A2A3A),
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(AppLocalizations.of(context)!.signInFailedMessage),
+            backgroundColor: const Color(0xFF2A2A3A),
           ));
         }
         return;
@@ -749,19 +771,20 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     final diffAtGameOver = _difficulty;
 
     final expected = (_playerStep < _sequence.length) ? _sequence[_playerStep] : null;
+    final l10n = AppLocalizations.of(context)!;
     String message;
     if (timeout) {
-      message = 'You did not press any button in time';
+      message = l10n.timeoutMessage;
     } else if (pressed != null && pressed.isNotEmpty && expected != null) {
-      final pressedName = _colorName(pressed);
+      final pressedName = _colorLabel(l10n, pressed);
       final pressedComp = _colorComponents(pressed);
-      final expectedName = _colorName(expected);
+      final expectedName = _colorLabel(l10n, expected);
       final expectedComp = _colorComponents(expected);
-      message = 'You pressed $pressedName ($pressedComp),\nbut $expectedName ($expectedComp) was expected';
+      message = l10n.wrongPressMessage(pressedName, pressedComp, expectedName, expectedComp);
     } else if (expected != null) {
-      final expectedName = _colorName(expected);
+      final expectedName = _colorLabel(l10n, expected);
       final expectedComp = _colorComponents(expected);
-      message = 'You released too early — $expectedName ($expectedComp) was expected';
+      message = l10n.earlyReleaseMessage(expectedName, expectedComp);
     } else {
       message = '';
     }
@@ -823,33 +846,33 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _showRecordCongrats() async {
-    final score     = _score;
-    final modeName  = _difficultyName(_gameOverDifficulty);
-    bool  submitted = _recordSubmitted;
-    final lb        = LeaderboardService();
+    final score      = _score;
+    final modeId     = _difficultyName(_gameOverDifficulty);    // leaderboard ID (English)
+    bool  submitted  = _recordSubmitted;
+    final lb         = LeaderboardService();
 
-    // First publishable record and player hasn't signed in yet → prompt once.
     if (score >= kLeaderboardMinScore && !lb.isSignedIn && !lb.optedOut) {
       if (!mounted) return;
+      final l10n = AppLocalizations.of(context)!;
       final proceed = await showDialog<bool>(
         context: context,
         builder: (_) => AlertDialog(
           backgroundColor: const Color(0xFF1A1A2A),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Submit to leaderboard?',
-              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
-          content: const Text(
-            'You\'ve reached a score worth posting! Sign in with Play Games to submit it to the global leaderboard.',
-            style: TextStyle(color: Colors.white60, fontSize: 13, height: 1.6),
+          title: Text(l10n.submitLeaderboardTitle,
+              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
+          content: Text(
+            l10n.submitLeaderboardBody,
+            style: const TextStyle(color: Colors.white60, fontSize: 13, height: 1.6),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('No thanks', style: TextStyle(color: Colors.white38)),
+              child: Text(l10n.noThanksButton, style: const TextStyle(color: Colors.white38)),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Sign in', style: TextStyle(color: Colors.white70)),
+              child: Text(l10n.signInButton, style: const TextStyle(color: Colors.white70)),
             ),
           ],
         ),
@@ -857,30 +880,30 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       if (proceed == true) {
         await lb.interactiveSignIn();
         if (lb.isSignedIn) {
-          submitted = await lb.submitScore(modeName.toLowerCase(), score);
+          submitted = await lb.submitScore(modeId.toLowerCase(), score);
         }
       } else if (proceed == false) {
-        // Player explicitly declined — offer opt-out so they aren't asked again.
         if (!mounted) return;
+        final l10n2 = AppLocalizations.of(context)!;
         final optOut = await showDialog<bool>(
           context: context,
           builder: (_) => AlertDialog(
             backgroundColor: const Color(0xFF1A1A2A),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: const Text('Turn off leaderboards?',
-                style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700)),
-            content: const Text(
-              'You can always re-enable leaderboards later from Settings.',
-              style: TextStyle(color: Colors.white60, fontSize: 13, height: 1.6),
+            title: Text(l10n2.turnOffLeaderboardTitle,
+                style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700)),
+            content: Text(
+              l10n2.turnOffLeaderboardBody,
+              style: const TextStyle(color: Colors.white60, fontSize: 13, height: 1.6),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Keep on', style: TextStyle(color: Colors.white38)),
+                child: Text(l10n2.keepOnButton, style: const TextStyle(color: Colors.white38)),
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Turn off', style: TextStyle(color: Colors.white54)),
+                child: Text(l10n2.turnOffButton, style: const TextStyle(color: Colors.white54)),
               ),
             ],
           ),
@@ -890,6 +913,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       if (!mounted) return;
     }
 
+    // Pass the localized mode name to the dialog for display.
+    final modeDisplay = _difficultyLabel(AppLocalizations.of(context)!, _gameOverDifficulty);
     await showGeneralDialog<void>(
       context: context,
       barrierDismissible: true,
@@ -905,7 +930,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       },
       pageBuilder: (ctx, _, _) => _RecordCongratsDialog(
         score: score,
-        modeName: modeName,
+        modeName: modeDisplay,
         submitted: submitted,
         leaderboardService: lb,
       ),
@@ -983,9 +1008,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     // Centred disc position (used when not floating)
     final discTop = sh * 0.24;
 
+    final l10n = AppLocalizations.of(context)!;
     // Personal record for the currently selected mode
     final modeRecord = _records[_difficulty] ?? 0;
-    final modeName   = _difficultyName(_difficulty);
+    final modeName   = _difficultyLabel(l10n, _difficulty);
 
     return Stack(
       children: [
@@ -1035,7 +1061,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 // Personal record for chosen mode
                 if (modeRecord > 0)
                   Text(
-                    '$modeName mode record: $modeRecord',
+                    l10n.modeRecordLine(modeName, modeRecord),
                     style: const TextStyle(
                       fontSize: 13,
                       color: Colors.white60,
@@ -1052,9 +1078,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                       borderRadius: BorderRadius.circular(36),
                       border: Border.all(color: Colors.white70, width: 1.5),
                     ),
-                    child: const Text(
-                      'START',
-                      style: TextStyle(
+                    child: Text(
+                      l10n.startButton,
+                      style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
@@ -1071,9 +1097,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const HowToPlayPage()),
                       ),
-                      child: const Text(
-                        'How to play',
-                        style: TextStyle(
+                      child: Text(
+                        l10n.howToPlay,
+                        style: const TextStyle(
                           fontSize: 13,
                           color: Colors.white38,
                           decoration: TextDecoration.underline,
@@ -1091,9 +1117,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                     const SizedBox(width: 20),
                     GestureDetector(
                       onTap: _openTipJar,
-                      child: const Text(
-                        '☕  Support the dev',
-                        style: TextStyle(
+                      child: Text(
+                        l10n.supportTheDev,
+                        style: const TextStyle(
                           fontSize: 13,
                           color: Colors.white38,
                           decoration: TextDecoration.underline,
@@ -1208,12 +1234,13 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildStatusRow() {
+    final l10n = AppLocalizations.of(context)!;
     String status;
     switch (_phase) {
       case GamePhase.showingSequence:
-        status = 'Watch carefully…';
+        status = l10n.watchCarefully;
       case GamePhase.playerInput:
-        status = 'Step ${_playerStep + 1} / ${_sequence.length}';
+        status = l10n.stepProgress(_playerStep + 1, _sequence.length);
       case GamePhase.gameOverFlash:
         status = '';
       default:
@@ -1224,7 +1251,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       child: Column(
         children: [
           Text(
-            'Level ${_sequence.length}   •   Score $_score',
+            l10n.levelScore(_sequence.length, _score),
             style: const TextStyle(fontSize: 17, color: Colors.white70),
           ),
           const SizedBox(height: 4),
@@ -1354,16 +1381,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     );
   }
 
-  static String _colorName(Set<GameColor> combo) => switch (combo.length) {
-    1 when combo.contains(GameColor.red)   => 'Red',
-    1 when combo.contains(GameColor.green) => 'Green',
-    1 when combo.contains(GameColor.blue)  => 'Blue',
-    2 when combo.containsAll({GameColor.red,   GameColor.green}) => 'Yellow',
-    2 when combo.containsAll({GameColor.red,   GameColor.blue})  => 'Magenta',
-    2 when combo.containsAll({GameColor.green, GameColor.blue})  => 'Cyan',
-    _ => 'White',
-  };
-
   static String _colorComponents(Set<GameColor> combo) {
     final parts = [
       if (combo.contains(GameColor.red))   'R',
@@ -1383,10 +1400,13 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildOverlay() {
+    final l10n       = AppLocalizations.of(context)!;
     final modeRecord = _records[_gameOverDifficulty] ?? 0;
-    final modeName   = _difficultyName(_gameOverDifficulty);
-    final scoreLines = 'You reached level ${_sequence.length}\nScore: $_score'
-        '${_isNewRecord ? '\n🏆 New record for $modeName mode: $_score' : (modeRecord > 0 ? '\n$modeName mode record: $modeRecord' : '')}';
+    final modeName   = _difficultyLabel(l10n, _gameOverDifficulty);
+    final suffix = _isNewRecord
+        ? '\n${l10n.newRecordLine(modeName, _score)}'
+        : (modeRecord > 0 ? '\n${l10n.modeRecordLine(modeName, modeRecord)}' : '');
+    final scoreLines = '${l10n.youReachedLevel(_sequence.length, _score)}$suffix';
 
     return Container(
       color: const Color(0xED1A1A2A),
@@ -1430,9 +1450,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                       borderRadius: BorderRadius.circular(36),
                       border: Border.all(color: Colors.white70, width: 1.5),
                     ),
-                    child: const Text(
-                      'TRY AGAIN',
-                      style: TextStyle(
+                    child: Text(
+                      l10n.tryAgainButton,
+                      style: const TextStyle(
                         fontSize: 20, fontWeight: FontWeight.w800,
                         color: Colors.white, letterSpacing: 3,
                       ),
@@ -1444,9 +1464,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 const SizedBox(height: 20),
                 GestureDetector(
                   onTap: _openLeaderboard,
-                  child: const Text(
-                    '🏆  View leaderboard',
-                    style: TextStyle(
+                  child: Text(
+                    l10n.viewLeaderboard,
+                    style: const TextStyle(
                       fontSize: 13, color: Colors.white54,
                       decoration: TextDecoration.underline,
                       decorationColor: Colors.white24,
@@ -1457,9 +1477,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 const SizedBox(height: 10),
                 GestureDetector(
                   onTap: _openTipJar,
-                  child: const Text(
-                    '☕  Support the dev',
-                    style: TextStyle(
+                  child: Text(
+                    l10n.supportTheDev,
+                    style: const TextStyle(
                       fontSize: 13, color: Colors.white38,
                       decoration: TextDecoration.underline,
                       decorationColor: Colors.white24,
@@ -1560,11 +1580,12 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildDifficultySelector() {
-    const options = [
-      (Difficulty.normal,   'STILL'),
-      (Difficulty.floating, 'FLOAT'),
-      (Difficulty.spinning, 'SPIN'),
-      (Difficulty.both,     'BOTH'),
+    final l10n = AppLocalizations.of(context)!;
+    final options = [
+      (Difficulty.normal,   l10n.diffStill),
+      (Difficulty.floating, l10n.diffFloat),
+      (Difficulty.spinning, l10n.diffSpin),
+      (Difficulty.both,     l10n.diffBoth),
     ];
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -1603,11 +1624,12 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildColorLegend() {
+    final l10n = AppLocalizations.of(context)!;
     final combos = [
-      ({GameColor.red, GameColor.green}, 'Red + Green = Yellow'),
-      ({GameColor.red, GameColor.blue}, 'Red + Blue = Magenta'),
-      ({GameColor.green, GameColor.blue}, 'Green + Blue = Cyan'),
-      ({GameColor.red, GameColor.green, GameColor.blue}, 'All three = White'),
+      ({GameColor.red, GameColor.green}, l10n.legendRedGreen),
+      ({GameColor.red, GameColor.blue},  l10n.legendRedBlue),
+      ({GameColor.green, GameColor.blue}, l10n.legendGreenBlue),
+      ({GameColor.red, GameColor.green, GameColor.blue}, l10n.legendAllThree),
     ];
     return Column(
       children: combos.map((entry) {
@@ -1736,7 +1758,7 @@ class _RecordCongratsDialogState extends State<_RecordCongratsDialog> {
               ),
             ),
             Text(
-              '${widget.modeName} mode',
+              AppLocalizations.of(context)!.modeLabel(widget.modeName),
               style: const TextStyle(
                 fontSize: 13, color: Colors.white54, letterSpacing: 2,
               ),
@@ -1754,10 +1776,10 @@ class _RecordCongratsDialogState extends State<_RecordCongratsDialog> {
                   borderRadius: BorderRadius.circular(36),
                   border: Border.all(color: Colors.white54, width: 1.5),
                 ),
-                child: const Center(
+                child: Center(
                   child: Text(
-                    'KEEP GOING',
-                    style: TextStyle(
+                    AppLocalizations.of(context)!.keepGoingButton,
+                    style: const TextStyle(
                       fontSize: 15, fontWeight: FontWeight.w800,
                       color: Colors.white, letterSpacing: 3,
                     ),
@@ -1781,16 +1803,17 @@ class _LeaderboardOptRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final String label;
     final Color  labelColor;
     if (lb.optedOut) {
-      label      = 'Not submitted — leaderboard off';
+      label      = l10n.leaderboardNotSubmittedOff;
       labelColor = Colors.white30;
     } else if (submitted) {
-      label      = 'Submitted to leaderboard ✓';
+      label      = l10n.leaderboardSubmitted;
       labelColor = const Color(0xFF44DD88);
     } else {
-      label      = 'Not submitted (sign in to rank)';
+      label      = l10n.leaderboardNotSubmittedSignIn;
       labelColor = Colors.white38;
     }
 
@@ -1861,11 +1884,12 @@ class _TipJarDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ps = PurchaseService();
+    final ps   = PurchaseService();
+    final l10n = AppLocalizations.of(context)!;
     final tips = [
-      (kProductTipS, '☕', 'Small tip'),
-      (kProductTipM, '🎩', 'Medium tip'),
-      (kProductTipL, '👑', 'Royal tip'),
+      (kProductTipS, '☕', l10n.tipSmall),
+      (kProductTipM, '🎩', l10n.tipMedium),
+      (kProductTipL, '👑', l10n.tipLarge),
     ];
 
     return Dialog(
@@ -1880,18 +1904,18 @@ class _TipJarDialog extends StatelessWidget {
             children: [
               const Text('☕', style: TextStyle(fontSize: 44)),
               const SizedBox(height: 16),
-              const Text(
-                'SUPPORT THE DEV',
-                style: TextStyle(
+              Text(
+                l10n.supportTitle,
+                style: const TextStyle(
                   fontSize: 14, fontWeight: FontWeight.w800,
                   color: Colors.white, letterSpacing: 2,
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
-                'Rigobert Says is free and ad-free. If you enjoy it, a tip means a lot — and it will stop these popups for good.',
+              Text(
+                l10n.supportBody,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: Colors.white60, height: 1.6),
+                style: const TextStyle(fontSize: 14, color: Colors.white60, height: 1.6),
               ),
               const SizedBox(height: 24),
               ...tips.map((t) {
@@ -1942,9 +1966,9 @@ class _TipJarDialog extends StatelessWidget {
               const SizedBox(height: 8),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text(
-                  'Not now — keep playing',
-                  style: TextStyle(fontSize: 12, color: Colors.white24),
+                child: Text(
+                  AppLocalizations.of(context)!.notNowButton,
+                  style: const TextStyle(fontSize: 12, color: Colors.white24),
                 ),
               ),
             ],
@@ -1964,6 +1988,7 @@ class HowToPlayPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: const Color(0xFF1E1E2E),
       appBar: AppBar(
@@ -1973,9 +1998,9 @@ class HowToPlayPage extends StatelessWidget {
           icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white70),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text(
-          'HOW TO PLAY',
-          style: TextStyle(
+        title: Text(
+          l10n.howToPlayTitle,
+          style: const TextStyle(
             color: Colors.white70,
             fontSize: 14,
             fontWeight: FontWeight.w700,
@@ -1994,74 +2019,52 @@ class HowToPlayPage extends StatelessWidget {
               children: [
                 _HowToSection(
                   icon: Icons.lightbulb_outline,
-                  iconColor: Color(0xFFFF3333),
-                  title: 'The basics',
-                  body:
-                    'RIGOBERT SAYS is a memory game. The disc lights up a sequence of coloured buttons — watch carefully, then tap them back in the same order. Each round adds one more step.',
+                  iconColor: const Color(0xFFFF3333),
+                  title: l10n.howToBasicsTitle,
+                  body: l10n.howToBasicsBody,
                 ),
-                SizedBox(height: 28),
+                const SizedBox(height: 28),
                 _HowToSection(
                   icon: Icons.touch_app_outlined,
-                  iconColor: Color(0xFF33FF33),
-                  title: 'The buttons',
-                  body:
-                    'There are three coloured segments on the disc:\n'
-                    '  🔴  Red\n'
-                    '  🟢  Green\n'
-                    '  🔵  Blue\n\n'
-                    'Some steps light up two or even all three at once — you must press those buttons simultaneously.',
+                  iconColor: const Color(0xFF33FF33),
+                  title: l10n.howToButtonsTitle,
+                  body: l10n.howToButtonsBody,
                 ),
-                SizedBox(height: 28),
+                const SizedBox(height: 28),
                 _HowToSection(
                   icon: Icons.palette_outlined,
-                  iconColor: Color(0xFF3366FF),
-                  title: 'Colour mixing',
-                  body:
-                    'When multiple buttons light up together, the disc blends their colours:\n'
-                    '  🔴 + 🟢 = Yellow\n'
-                    '  🔴 + 🔵 = Magenta\n'
-                    '  🟢 + 🔵 = Cyan\n'
-                    '  🔴 + 🟢 + 🔵 = White',
+                  iconColor: const Color(0xFF3366FF),
+                  title: l10n.howToMixingTitle,
+                  body: l10n.howToMixingBody,
                 ),
-                SizedBox(height: 28),
+                const SizedBox(height: 28),
                 _HowToSection(
                   icon: Icons.tune_outlined,
                   iconColor: Colors.purpleAccent,
-                  title: 'Difficulty modes',
-                  body:
-                    'Choose your challenge before you start:\n\n'
-                    '  STILL — the disc stays in the centre.\n'
-                    '  FLOAT — the disc drifts around the screen.\n'
-                    '  SPIN  — the disc slowly rotates.\n'
-                    '  BOTH  — the disc floats and spins at the same time.\n\n'
-                    'Floating and spinning speeds increase as the sequence grows longer.',
+                  title: l10n.howToModesTitle,
+                  body: l10n.howToModesBody,
                 ),
-                SizedBox(height: 28),
+                const SizedBox(height: 28),
                 _HowToSection(
                   icon: Icons.emoji_events_outlined,
                   iconColor: Colors.amber,
-                  title: 'Scoring',
-                  body:
-                    'You score points for every correct sequence. Your personal record is saved between sessions — can you beat it?',
+                  title: l10n.howToScoringTitle,
+                  body: l10n.howToScoringBody,
                 ),
-                SizedBox(height: 28),
+                const SizedBox(height: 28),
                 _HowToSection(
                   icon: Icons.leaderboard_outlined,
-                  iconColor: Color(0xFF00DDFF),
-                  title: 'Leaderboards',
-                  body:
-                    'Every mode has its own global leaderboard — STILL, FLOAT, SPIN, and BOTH are ranked separately.\n\n'
-                    'Scores are submitted automatically when you set a personal record of 10 or more. '
-                    'Leaderboards use Game Center on iOS and Play Games on Android. '
-                    'Signing in is completely optional — the game is fully playable without it.',
+                  iconColor: const Color(0xFF00DDFF),
+                  title: l10n.howToLeaderboardsTitle,
+                  body: l10n.howToLeaderboardsBody,
                 ),
-                SizedBox(height: 32),
+                const SizedBox(height: 32),
                 Center(
                   child: GestureDetector(
                     onTap: () => showTipJar(context),
-                    child: const Text(
-                      '☕  Support the dev',
-                      style: TextStyle(
+                    child: Text(
+                      l10n.supportTheDev,
+                      style: const TextStyle(
                         fontSize: 13,
                         color: Colors.white38,
                         decoration: TextDecoration.underline,
@@ -2071,7 +2074,7 @@ class HowToPlayPage extends StatelessWidget {
                     ),
                   ),
                 ),
-                SizedBox(height: 40),
+                const SizedBox(height: 40),
               ],
             ),
           ),

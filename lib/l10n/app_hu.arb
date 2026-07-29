@@ -1,0 +1,89 @@
+{
+  "@@locale": "hu",
+
+  "startButton": "KEZDÉS",
+  "tryAgainButton": "ÚJRA",
+  "keepGoingButton": "TOVÁBB",
+  "howToPlay": "Hogyan kell játszani",
+  "supportTheDev": "☕  Támogasd a fejlesztőt",
+  "viewLeaderboard": "🏆  Ranglista",
+
+  "watchCarefully": "Figyelj jól…",
+  "stepProgress": "{current}. lépés / {total}",
+  "levelScore": "{level}. szint   •   Pontszám: {score}",
+
+  "diffStill": "ÁLLÓ",
+  "diffFloat": "LEBEG",
+  "diffSpin": "FOROG",
+  "diffBoth": "VEGYES",
+
+  "settingsHeader": "BEÁLLÍTÁSOK",
+  "leaderboardToggleTitle": "Ranglista",
+  "leaderboardToggleDesc": "Személyes rekordok küldése a globális ranglistára",
+
+  "youReachedLevel": "Elérted a {level}. szintet\nPontszám: {score}",
+  "newRecordLine": "🏆 Új rekord {mode} módban: {score}",
+  "modeRecordLine": "{mode} módban elért rekord: {score}",
+  "modeLabel": "{mode} mód",
+
+  "timeoutMessage": "Nem nyomtál meg egyetlen gombot sem időben",
+  "wrongPressMessage": "{pressed} ({pressedComp}) gombot nyomtad meg,\nde {expected} ({expectedComp}) kellett volna",
+  "earlyReleaseMessage": "Túl korán engedted el — {expected} ({expectedComp}) kellett volna",
+
+  "signInDialogTitle": "Bejelentkezés?",
+  "signInDialogBody": "A ranglistákat a Game Center (iOS) vagy a Play Games (Android) működteti. Jelentkezz be a rangsorok megtekintéséhez — vagy hagyd ki, ha nem szeretnéd.",
+  "skipButton": "Kihagyás",
+  "signInButton": "Bejelentkezés",
+  "signInFailedMessage": "Nem sikerült bejelentkezni — próbáld meg később.",
+
+  "submitLeaderboardTitle": "Feltöltés a ranglistára?",
+  "submitLeaderboardBody": "Elértél egy ranglistára méltó pontszámot! Jelentkezz be a Play Games-szel, hogy feltöltsd a globális ranglistára.",
+  "noThanksButton": "Nem, köszönöm",
+  "turnOffLeaderboardTitle": "Kikapcsoljuk a ranglistákat?",
+  "turnOffLeaderboardBody": "A ranglistákat bármikor újra bekapcsolhatod a Beállításokban.",
+  "keepOnButton": "Maradjon be",
+  "turnOffButton": "Kikapcsolás",
+
+  "leaderboardNotSubmittedOff": "Nem küldve — ranglista kikapcsolva",
+  "leaderboardSubmitted": "Feltöltve a ranglistára ✓",
+  "leaderboardNotSubmittedSignIn": "Nem küldve (jelentkezz be a rangsorhoz)",
+
+  "screenshotTipHeader": "💡  Tipp",
+  "screenshotTipBody": "Egyes Android eszközök képernyőképet készítenek, ha három ujjal húzol — ami véletlenül megszakíthatja a játékot.",
+  "screenshotTipSettings": "Letilthatod a Beállítások → Speciális funkciók → Mozgások és kézmozdulatok → Tenyérrel csúsztatva rögzítés lehetőségnél (vagy hasonlónál, az eszköztől függően).",
+  "gotItButton": "Értettem",
+
+  "supportTitle": "TÁMOGASD A FEJLESZTŐT",
+  "supportBody": "A Rigobert Says ingyenes és hirdetésmentes. Ha élvezed, egy apró támogatás sokat jelent — és végleg megszünteti ezeket az üzeneteket.",
+  "tipSmall": "Kis összeg",
+  "tipMedium": "Közepes összeg",
+  "tipLarge": "Nagyvonalú összeg",
+  "notNowButton": "Nem most — játszom tovább",
+
+  "howToPlayTitle": "HOGYAN KELL JÁTSZANI",
+  "howToBasicsTitle": "Az alapok",
+  "howToBasicsBody": "A RIGOBERT SAYS egy memóriajáték. A korong felvillan egy gombosorozatot — figyelj jól, majd érintsd meg őket ugyanabban a sorrendben. Minden körben egy lépéssel bővül a sorozat.",
+  "howToButtonsTitle": "A gombok",
+  "howToButtonsBody": "A korongon három színes szegmens van:\n  🔴  Piros\n  🟢  Zöld\n  🔵  Kék\n\nNéhány lépésnél egyszerre kettő vagy akár mindhárom felvillan — ezeket egyszerre kell megérinteni.",
+  "howToMixingTitle": "Színkeverés",
+  "howToMixingBody": "Ha több gomb egyszerre világít, a korong keveri a színeiket:\n  🔴 + 🟢 = Sárga\n  🔴 + 🔵 = Magenta\n  🟢 + 🔵 = Cián\n  🔴 + 🟢 + 🔵 = Fehér",
+  "howToModesTitle": "Nehézségi módok",
+  "howToModesBody": "Válaszd ki a kihívásodat a kezdés előtt:\n\n  ÁLLÓ   — a korong a középen marad.\n  LEBEG  — a korong úszik a képernyőn.\n  FOROG  — a korong lassan forog.\n  VEGYES — a korong lebeg és forog egyszerre.\n\nA sebességek nőnek, ahogy a sorozat hosszabbodik.",
+  "howToScoringTitle": "Pontszámítás",
+  "howToScoringBody": "Minden helyes sorozatért pontokat kapsz. A személyes rekordod megmarad a munkamenetek között — meg tudod dönteni?",
+  "howToLeaderboardsTitle": "Ranglisták",
+  "howToLeaderboardsBody": "Minden módnak van saját globális ranglistája — ÁLLÓ, LEBEG, FOROG és VEGYES külön vannak rangsorolva.\n\nA pontszámok automatikusan elküldésre kerülnek, ha 10 vagy több ponttal személyes rekordot állítasz be. A ranglisták iOS-en a Game Centert, Androidon a Play Gamest használják. A bejelentkezés teljesen opcionális — a játék bejelentkezés nélkül is teljes mértékben játszható.",
+
+  "colorRed": "Piros",
+  "colorGreen": "Zöld",
+  "colorBlue": "Kék",
+  "colorYellow": "Sárga",
+  "colorMagenta": "Magenta",
+  "colorCyan": "Cián",
+  "colorWhite": "Fehér",
+
+  "legendRedGreen": "Piros + Zöld = Sárga",
+  "legendRedBlue": "Piros + Kék = Magenta",
+  "legendGreenBlue": "Zöld + Kék = Cián",
+  "legendAllThree": "Mindhárom = Fehér"
+}

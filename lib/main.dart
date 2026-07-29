@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'l10n/app_localizations.dart';
 import 'game_screen.dart';
 import 'purchase_service.dart';
 
@@ -18,6 +19,8 @@ class RigobertSaysApp extends StatelessWidget {
     return MaterialApp(
       title: 'Rigobert Says',
       theme: ThemeData.dark(useMaterial3: true),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: const GameScreen(),
       debugShowCheckedModeBanner: false,
     );
