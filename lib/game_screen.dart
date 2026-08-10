@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'l10n/app_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'analytics_service.dart';
 import 'circle_buttons.dart';
 import 'game_colors.dart';
 import 'leaderboard_service.dart';
@@ -444,8 +445,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     );
   }
 
-  Future<void> _openLeaderboard() async {
-    final lb = LeaderboardService();
+  Future<void> _openLeaderboard([Difficulty? difficulty]) async {
+    final lb   = LeaderboardService();
+    final diff = difficulty ?? _gameOverDifficulty;
     if (!lb.isSignedIn) {
       if (!mounted) return;
       final l10n = AppLocalizations.of(context)!;
@@ -484,7 +486,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         return;
       }
     }
-    await lb.showLeaderboard(_difficultyName(_gameOverDifficulty).toLowerCase());
+    await lb.showLeaderboard(_difficultyName(diff).toLowerCase());
   }
 
   Future<void> _startGame() async {
@@ -507,6 +509,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       _spinPhaseOffset = 0.0;
       _floatLevel = 0;
     });
+    AnalyticsService().logGameStarted(_difficultyName(_difficulty).toLowerCase());
     await Future.delayed(const Duration(seconds: 1));
     if (!mounted || _generation != gen) return;
     _addNextStep();
@@ -769,6 +772,15 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _cancelInputTimer();
     _sound.playFail();
     final diffAtGameOver = _difficulty;
+    final reason = timeout
+        ? 'timeout'
+        : (pressed != null && pressed.isNotEmpty ? 'wrong_press' : 'early_release');
+    AnalyticsService().logGameOver(
+      difficulty: _difficultyName(diffAtGameOver).toLowerCase(),
+      score:      _score,
+      level:      _sequence.length,
+      reason:     reason,
+    );
 
     final expected = (_playerStep < _sequence.length) ? _sequence[_playerStep] : null;
     final l10n = AppLocalizations.of(context)!;
@@ -882,33 +894,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         if (lb.isSignedIn) {
           submitted = await lb.submitScore(modeId.toLowerCase(), score);
         }
-      } else if (proceed == false) {
-        if (!mounted) return;
-        final l10n2 = AppLocalizations.of(context)!;
-        final optOut = await showDialog<bool>(
-          context: context,
-          builder: (_) => AlertDialog(
-            backgroundColor: const Color(0xFF1A1A2A),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: Text(l10n2.turnOffLeaderboardTitle,
-                style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700)),
-            content: Text(
-              l10n2.turnOffLeaderboardBody,
-              style: const TextStyle(color: Colors.white60, fontSize: 13, height: 1.6),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: Text(l10n2.keepOnButton, style: const TextStyle(color: Colors.white38)),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: Text(l10n2.turnOffButton, style: const TextStyle(color: Colors.white54)),
-              ),
-            ],
-          ),
-        );
-        if (optOut == true) await lb.setOptedOut(true);
       }
       if (!mounted) return;
     }
@@ -1068,6 +1053,20 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                       letterSpacing: 0.5,
                     ),
                   ),
+                const SizedBox(height: 6),
+                GestureDetector(
+                  onTap: () => _openLeaderboard(_difficulty),
+                  child: Text(
+                    l10n.viewLeaderboard,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Colors.white38,
+                      decoration: TextDecoration.underline,
+                      decorationColor: Colors.white24,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 16),
                 GestureDetector(
                   onTap: _startGame,
