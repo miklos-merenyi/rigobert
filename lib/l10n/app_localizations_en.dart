@@ -166,7 +166,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get supportBody =>
-      'Rigobert Says is free and ad-free. If you enjoy it, a tip means a lot — and it will stop these popups for good.';
+      'Rigobert Says is free to play, with the occasional ad. If you enjoy it, any tip removes ads for good and stops these popups too.';
 
   @override
   String get tipSmall => 'Small tip';

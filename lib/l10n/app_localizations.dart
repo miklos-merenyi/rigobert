@@ -366,7 +366,7 @@ abstract class AppLocalizations {
   /// No description provided for @supportBody.
   ///
   /// In en, this message translates to:
-  /// **'Rigobert Says is free and ad-free. If you enjoy it, a tip means a lot — and it will stop these popups for good.'**
+  /// **'Rigobert Says is free to play, with the occasional ad. If you enjoy it, any tip removes ads for good and stops these popups too.'**
   String get supportBody;
 
   /// No description provided for @tipSmall.

@@ -169,7 +169,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get supportBody =>
-      'Rigobert Says es gratis y sin anuncios. Si te gusta, una propina significa mucho — y detendrá estos mensajes para siempre.';
+      'Rigobert Says es gratis, con algún anuncio ocasional. Si te gusta, cualquier propina elimina los anuncios para siempre y también detiene estos mensajes.';
 
   @override
   String get tipSmall => 'Propina pequeña';

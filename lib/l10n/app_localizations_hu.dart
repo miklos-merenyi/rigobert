@@ -168,7 +168,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get supportBody =>
-      'A Rigobert Says ingyenes és hirdetésmentes. Ha élvezed, egy apró támogatás sokat jelent — és végleg megszünteti ezeket az üzeneteket.';
+      'A Rigobert Says ingyenes, néha hirdetéssel. Ha élvezed, bármilyen támogatás végleg eltávolítja a hirdetéseket, és megszünteti ezeket az üzeneteket is.';
 
   @override
   String get tipSmall => 'Kis összeg';
