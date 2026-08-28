@@ -166,7 +166,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get supportBody =>
-      'Rigobert Says is free to play, with the occasional ad. If you enjoy it, any tip removes ads for good and stops these popups too.';
+      'Rigobert Says is free to play, with the occasional ad. A tip removes ads for a while and stops these popups too.';
 
   @override
   String get tipSmall => 'Small tip';
@@ -176,6 +176,24 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tipLarge => 'Royal tip';
+
+  @override
+  String get tipSmallDuration => '1 month ad-free';
+
+  @override
+  String get tipMediumDuration => '3 months ad-free';
+
+  @override
+  String get tipLargeDuration => '1 year ad-free';
+
+  @override
+  String adsFreeUntilLabel(String date) {
+    return 'Ads removed until $date';
+  }
+
+  @override
+  String get tipNotTransferable =>
+      'Ad-free time is tied to this device only — it can\'t be transferred to another device or account, and isn\'t restored if you reinstall.';
 
   @override
   String get notNowButton => 'Not now — keep playing';

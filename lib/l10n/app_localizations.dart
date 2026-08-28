@@ -366,7 +366,7 @@ abstract class AppLocalizations {
   /// No description provided for @supportBody.
   ///
   /// In en, this message translates to:
-  /// **'Rigobert Says is free to play, with the occasional ad. If you enjoy it, any tip removes ads for good and stops these popups too.'**
+  /// **'Rigobert Says is free to play, with the occasional ad. A tip removes ads for a while and stops these popups too.'**
   String get supportBody;
 
   /// No description provided for @tipSmall.
@@ -386,6 +386,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Royal tip'**
   String get tipLarge;
+
+  /// No description provided for @tipSmallDuration.
+  ///
+  /// In en, this message translates to:
+  /// **'1 month ad-free'**
+  String get tipSmallDuration;
+
+  /// No description provided for @tipMediumDuration.
+  ///
+  /// In en, this message translates to:
+  /// **'3 months ad-free'**
+  String get tipMediumDuration;
+
+  /// No description provided for @tipLargeDuration.
+  ///
+  /// In en, this message translates to:
+  /// **'1 year ad-free'**
+  String get tipLargeDuration;
+
+  /// No description provided for @adsFreeUntilLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Ads removed until {date}'**
+  String adsFreeUntilLabel(String date);
+
+  /// No description provided for @tipNotTransferable.
+  ///
+  /// In en, this message translates to:
+  /// **'Ad-free time is tied to this device only — it can\'t be transferred to another device or account, and isn\'t restored if you reinstall.'**
+  String get tipNotTransferable;
 
   /// No description provided for @notNowButton.
   ///

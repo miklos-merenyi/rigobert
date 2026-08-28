@@ -103,10 +103,20 @@
   "gotItButton": "Got it",
 
   "supportTitle": "SUPPORT THE DEV",
-  "supportBody": "Rigobert Says is free to play, with the occasional ad. If you enjoy it, any tip removes ads for good and stops these popups too.",
+  "supportBody": "Rigobert Says is free to play, with the occasional ad. A tip removes ads for a while and stops these popups too.",
   "tipSmall": "Small tip",
   "tipMedium": "Medium tip",
   "tipLarge": "Royal tip",
+  "tipSmallDuration": "1 month ad-free",
+  "tipMediumDuration": "3 months ad-free",
+  "tipLargeDuration": "1 year ad-free",
+  "adsFreeUntilLabel": "Ads removed until {date}",
+  "@adsFreeUntilLabel": {
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "tipNotTransferable": "Ad-free time is tied to this device only — it can't be transferred to another device or account, and isn't restored if you reinstall.",
   "notNowButton": "Not now — keep playing",
 
   "howToPlayTitle": "HOW TO PLAY",

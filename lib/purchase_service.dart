@@ -20,12 +20,21 @@ final kProductTipL = Platform.isIOS ? _kIosTipL : _kAndroidTipL;
 
 final kAllProductIds = {kProductTipS, kProductTipM, kProductTipL};
 
-// Show tip prompt every N rounds (as long as the player hasn't tipped).
+// Ad-free time granted per tip tier, in calendar months. Tips stack: a new
+// tip extends whatever ad-free time is left rather than replacing it.
+final kAdFreeMonths = {
+  kProductTipS: 1,
+  kProductTipM: 3,
+  kProductTipL: 12,
+};
+
+// Show tip prompt every N rounds, as long as ads aren't currently suppressed.
 const kTipPromptEvery = 20;
 
 // ── SharedPreferences keys ────────────────────────────────────────────────────
-const _kHasTipped    = 'has_tipped';
-const _kRoundsPlayed = 'rounds_played';
+const _kHasTipped      = 'has_tipped'; // legacy flag, read once for migration
+const _kAdsFreeUntilMs = 'ads_free_until_ms';
+const _kRoundsPlayed   = 'rounds_played';
 
 // ── PurchaseService ───────────────────────────────────────────────────────────
 
@@ -38,20 +47,26 @@ class PurchaseService extends ChangeNotifier {
   StreamSubscription<List<PurchaseDetails>>? _sub;
 
   bool _available      = false;
-  bool _hasTipped      = false;
+  DateTime? _adsFreeUntil;
   int  _roundsPlayed   = 0;
 
   Map<String, ProductDetails> _products = {};
   bool _loadingPurchase = false;
 
   bool get available       => _available;
-  bool get hasTipped       => _hasTipped;
   int  get roundsPlayed    => _roundsPlayed;
   bool get loadingPurchase => _loadingPurchase;
 
+  /// When the current ad-free period ends, or null if none is active.
+  DateTime? get adsFreeUntil => _adsFreeUntil;
+
+  /// True while a tip's ad-free period is still active.
+  bool get adsRemoved =>
+      _adsFreeUntil != null && _adsFreeUntil!.isAfter(DateTime.now());
+
   /// True when it's time to nudge the player for a tip.
   bool get shouldShowTipPrompt =>
-      !_hasTipped && _roundsPlayed > 0 && _roundsPlayed % kTipPromptEvery == 0;
+      !adsRemoved && _roundsPlayed > 0 && _roundsPlayed % kTipPromptEvery == 0;
 
   ProductDetails? product(String id) => _products[id];
 
@@ -59,8 +74,17 @@ class PurchaseService extends ChangeNotifier {
 
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
-    _hasTipped    = prefs.getBool(_kHasTipped)    ?? false;
-    _roundsPlayed = prefs.getInt(_kRoundsPlayed)  ?? 0;
+    _roundsPlayed = prefs.getInt(_kRoundsPlayed) ?? 0;
+
+    final storedMs = prefs.getInt(_kAdsFreeUntilMs);
+    if (storedMs != null) {
+      _adsFreeUntil = DateTime.fromMillisecondsSinceEpoch(storedMs);
+    } else if (prefs.getBool(_kHasTipped) ?? false) {
+      // Migrate players who tipped under the old "ads removed forever"
+      // scheme — grandfather them in rather than suddenly showing ads again.
+      _adsFreeUntil = DateTime.now().add(const Duration(days: 365 * 100));
+      await prefs.setInt(_kAdsFreeUntilMs, _adsFreeUntil!.millisecondsSinceEpoch);
+    }
 
     _available = await _iap.isAvailable();
     if (!_available) { notifyListeners(); return; }
@@ -137,8 +161,7 @@ class PurchaseService extends ChangeNotifier {
     for (final p in purchases) {
       if (p.status == PurchaseStatus.purchased ||
           p.status == PurchaseStatus.restored) {
-        // Any tip silences future prompts.
-        await _grantTipped();
+        await _grantAdFreeTime(p.productID);
         if (p.pendingCompletePurchase) {
           await _iap.completePurchase(p);
         }
@@ -154,9 +177,23 @@ class PurchaseService extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _grantTipped() async {
-    _hasTipped = true;
+  /// Extends the ad-free period by the tier's duration. Stacks on top of any
+  /// remaining time rather than replacing it (buying while already ad-free
+  /// pushes the expiry further out instead of wasting the earlier tip).
+  Future<void> _grantAdFreeTime(String productId) async {
+    final months = kAdFreeMonths[productId];
+    if (months == null) return; // not a tip product (or unrecognised)
+
+    final now = DateTime.now();
+    final base = (_adsFreeUntil != null && _adsFreeUntil!.isAfter(now))
+        ? _adsFreeUntil!
+        : now;
+    _adsFreeUntil = DateTime(
+      base.year, base.month + months, base.day,
+      base.hour, base.minute, base.second,
+    );
+
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_kHasTipped, true);
+    await prefs.setInt(_kAdsFreeUntilMs, _adsFreeUntil!.millisecondsSinceEpoch);
   }
 }

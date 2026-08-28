@@ -169,7 +169,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get supportBody =>
-      'Rigobert Says es gratis, con algún anuncio ocasional. Si te gusta, cualquier propina elimina los anuncios para siempre y también detiene estos mensajes.';
+      'Rigobert Says es gratis, con algún anuncio ocasional. Una propina elimina los anuncios durante un tiempo y también detiene estos mensajes.';
 
   @override
   String get tipSmall => 'Propina pequeña';
@@ -179,6 +179,24 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get tipLarge => 'Propina real';
+
+  @override
+  String get tipSmallDuration => '1 mes sin anuncios';
+
+  @override
+  String get tipMediumDuration => '3 meses sin anuncios';
+
+  @override
+  String get tipLargeDuration => '1 año sin anuncios';
+
+  @override
+  String adsFreeUntilLabel(String date) {
+    return 'Anuncios eliminados hasta el $date';
+  }
+
+  @override
+  String get tipNotTransferable =>
+      'El tiempo sin anuncios está vinculado únicamente a este dispositivo — no se puede transferir a otro dispositivo o cuenta, ni se restaura si reinstalas la app.';
 
   @override
   String get notNowButton => 'Ahora no — seguir jugando';

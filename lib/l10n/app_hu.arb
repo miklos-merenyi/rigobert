@@ -54,10 +54,20 @@
   "gotItButton": "Értettem",
 
   "supportTitle": "TÁMOGASD A FEJLESZTŐT",
-  "supportBody": "A Rigobert Says ingyenes, néha hirdetéssel. Ha élvezed, bármilyen támogatás végleg eltávolítja a hirdetéseket, és megszünteti ezeket az üzeneteket is.",
+  "supportBody": "A Rigobert Says ingyenes, néha hirdetéssel. Egy támogatás egy időre eltávolítja a hirdetéseket, és megszünteti ezeket az üzeneteket is.",
   "tipSmall": "Kis összeg",
   "tipMedium": "Közepes összeg",
   "tipLarge": "Nagyvonalú összeg",
+  "tipSmallDuration": "1 hónap hirdetésmentesség",
+  "tipMediumDuration": "3 hónap hirdetésmentesség",
+  "tipLargeDuration": "1 év hirdetésmentesség",
+  "adsFreeUntilLabel": "Hirdetések eltávolítva eddig: {date}",
+  "@adsFreeUntilLabel": {
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "tipNotTransferable": "A hirdetésmentes idő csak ehhez a készülékhez kötött — nem vihető át másik eszközre vagy fiókra, és újratelepítés esetén sem áll vissza.",
   "notNowButton": "Nem most — játszom tovább",
 
   "howToPlayTitle": "HOGYAN KELL JÁTSZANI",

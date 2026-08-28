@@ -54,10 +54,20 @@
   "gotItButton": "Entendido",
 
   "supportTitle": "APOYA AL DESARROLLADOR",
-  "supportBody": "Rigobert Says es gratis, con algún anuncio ocasional. Si te gusta, cualquier propina elimina los anuncios para siempre y también detiene estos mensajes.",
+  "supportBody": "Rigobert Says es gratis, con algún anuncio ocasional. Una propina elimina los anuncios durante un tiempo y también detiene estos mensajes.",
   "tipSmall": "Propina pequeña",
   "tipMedium": "Propina mediana",
   "tipLarge": "Propina real",
+  "tipSmallDuration": "1 mes sin anuncios",
+  "tipMediumDuration": "3 meses sin anuncios",
+  "tipLargeDuration": "1 año sin anuncios",
+  "adsFreeUntilLabel": "Anuncios eliminados hasta el {date}",
+  "@adsFreeUntilLabel": {
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "tipNotTransferable": "El tiempo sin anuncios está vinculado únicamente a este dispositivo — no se puede transferir a otro dispositivo o cuenta, ni se restaura si reinstalas la app.",
   "notNowButton": "Ahora no — seguir jugando",
 
   "howToPlayTitle": "CÓMO JUGAR",

@@ -168,7 +168,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get supportBody =>
-      'A Rigobert Says ingyenes, néha hirdetéssel. Ha élvezed, bármilyen támogatás végleg eltávolítja a hirdetéseket, és megszünteti ezeket az üzeneteket is.';
+      'A Rigobert Says ingyenes, néha hirdetéssel. Egy támogatás egy időre eltávolítja a hirdetéseket, és megszünteti ezeket az üzeneteket is.';
 
   @override
   String get tipSmall => 'Kis összeg';
@@ -178,6 +178,24 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get tipLarge => 'Nagyvonalú összeg';
+
+  @override
+  String get tipSmallDuration => '1 hónap hirdetésmentesség';
+
+  @override
+  String get tipMediumDuration => '3 hónap hirdetésmentesség';
+
+  @override
+  String get tipLargeDuration => '1 év hirdetésmentesség';
+
+  @override
+  String adsFreeUntilLabel(String date) {
+    return 'Hirdetések eltávolítva eddig: $date';
+  }
+
+  @override
+  String get tipNotTransferable =>
+      'A hirdetésmentes idő csak ehhez a készülékhez kötött — nem vihető át másik eszközre vagy fiókra, és újratelepítés esetén sem áll vissza.';
 
   @override
   String get notNowButton => 'Nem most — játszom tovább';

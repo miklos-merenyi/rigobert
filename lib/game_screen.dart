@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'l10n/app_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'ad_service.dart';
 import 'analytics_service.dart';
@@ -851,10 +852,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     }
     if (!mounted || _generation != gen) return;
 
-    // Show an interstitial every kAdEveryNGames games for non-tippers.
+    // Show an interstitial every kAdEveryNGames games, unless a tip's
+    // ad-free period is still active.
     // The ad is awaited so the game-over overlay only appears after dismissal.
     final ps = PurchaseService();
-    if (!ps.hasTipped &&
+    if (!ps.adsRemoved &&
         ps.roundsPlayed > 0 &&
         ps.roundsPlayed % kAdEveryNGames == 0) {
       await AdService().showIfReady();
@@ -1898,9 +1900,9 @@ class _TipJarDialog extends StatelessWidget {
     final ps   = PurchaseService();
     final l10n = AppLocalizations.of(context)!;
     final tips = [
-      (kProductTipS, '☕', l10n.tipSmall),
-      (kProductTipM, '🎩', l10n.tipMedium),
-      (kProductTipL, '👑', l10n.tipLarge),
+      (kProductTipS, '☕', l10n.tipSmall, l10n.tipSmallDuration),
+      (kProductTipM, '🎩', l10n.tipMedium, l10n.tipMediumDuration),
+      (kProductTipL, '👑', l10n.tipLarge, l10n.tipLargeDuration),
     ];
 
     return Dialog(
@@ -1928,9 +1930,22 @@ class _TipJarDialog extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 14, color: Colors.white60, height: 1.6),
               ),
+              if (ps.adsRemoved) ...[
+                const SizedBox(height: 10),
+                Text(
+                  l10n.adsFreeUntilLabel(
+                    DateFormat.yMMMd(l10n.localeName).format(ps.adsFreeUntil!),
+                  ),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 12, color: Colors.greenAccent,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
               ...tips.map((t) {
-                final (id, emoji, label) = t;
+                final (id, emoji, label, duration) = t;
                 final product = ps.product(id);
                 final price = product?.price ?? '—';
                 return Padding(
@@ -1953,12 +1968,24 @@ class _TipJarDialog extends StatelessWidget {
                           Text(emoji, style: const TextStyle(fontSize: 20)),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: Text(
-                              label,
-                              style: const TextStyle(
-                                fontSize: 14, color: Colors.white70,
-                                fontWeight: FontWeight.w600,
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  label,
+                                  style: const TextStyle(
+                                    fontSize: 14, color: Colors.white70,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  duration,
+                                  style: const TextStyle(
+                                    fontSize: 11, color: Colors.white38,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           Text(
@@ -1974,6 +2001,12 @@ class _TipJarDialog extends StatelessWidget {
                   ),
                 );
               }),
+              const SizedBox(height: 4),
+              Text(
+                l10n.tipNotTransferable,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 10, color: Colors.white24, height: 1.4),
+              ),
               const SizedBox(height: 8),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
