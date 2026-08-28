@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'l10n/app_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'ad_service.dart';
 import 'analytics_service.dart';
 import 'circle_buttons.dart';
 import 'game_colors.dart';
@@ -848,6 +849,17 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       });
       await Future.delayed(const Duration(milliseconds: 60));
     }
+    if (!mounted || _generation != gen) return;
+
+    // Show an interstitial every kAdEveryNGames games for non-tippers.
+    // The ad is awaited so the game-over overlay only appears after dismissal.
+    final ps = PurchaseService();
+    if (!ps.hasTipped &&
+        ps.roundsPlayed > 0 &&
+        ps.roundsPlayed % kAdEveryNGames == 0) {
+      await AdService().showIfReady();
+    }
+
     if (!mounted || _generation != gen) return;
     setState(() => _phase = GamePhase.gameOver);
     // Show record congratulations after a short beat.

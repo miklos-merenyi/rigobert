@@ -69,5 +69,15 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+
+	<!-- AdMob App ID — replace with your real ID from the AdMob console.
+	     The value below is Google's official test App ID (safe for dev). -->
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-3940256099942544~1458002511</string>
+
+	<!-- Required for iOS 14+ App Tracking Transparency.
+	     Shown in Settings → Privacy → Tracking. Localise this string if needed. -->
+	<key>NSUserTrackingUsageDescription</key>
+	<string>We show ads to keep the game free. No personal data is collected.</string>
 </dict>
 </plist>
