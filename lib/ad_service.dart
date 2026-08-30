@@ -13,9 +13,8 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 const _kTestAndroidInterstitialId = 'ca-app-pub-3940256099942544/1033173712';
 const _kTestIosInterstitialId     = 'ca-app-pub-3940256099942544/4411468910';
 
-// TODO: replace with your real AdMob interstitial unit IDs before shipping.
-const _kReleaseAndroidInterstitialId = 'ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX';
-const _kReleaseIosInterstitialId     = 'ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX';
+const _kReleaseAndroidInterstitialId = 'ca-app-pub-3586572619031314/2381062775';
+const _kReleaseIosInterstitialId     = 'ca-app-pub-3586572619031314/3525684133';
 
 String get _interstitialAdUnitId {
   if (kDebugMode) {

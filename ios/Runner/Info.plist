@@ -70,10 +70,9 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 
-	<!-- AdMob App ID — replace with your real ID from the AdMob console.
-	     The value below is Google's official test App ID (safe for dev). -->
+	<!-- AdMob App ID (real, from apps.admob.com). -->
 	<key>GADApplicationIdentifier</key>
-	<string>ca-app-pub-3940256099942544~1458002511</string>
+	<string>ca-app-pub-3586572619031314~8805930970</string>
 
 	<!-- Required for iOS 14+ App Tracking Transparency.
 	     Shown in Settings → Privacy → Tracking. Localise this string if needed. -->
