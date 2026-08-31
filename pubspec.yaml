@@ -74,6 +74,13 @@ dev_dependencies:
 flutter:
   generate: true
 
+  # google_mobile_ads pulls in webview_flutter_wkwebview, which only ships a
+  # Swift Package Manager manifest, while google_mobile_ads/games_services/
+  # soundpool are CocoaPods-only. Mixing the two breaks `pod install`, so
+  # disable SPM until all plugins support it.
+  config:
+    enable-swift-package-manager: false
+
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.
