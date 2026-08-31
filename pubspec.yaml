@@ -41,17 +41,23 @@ dependencies:
   audioplayers: ^6.0.0
   google_fonts: ^8.1.0
   in_app_purchase: ^3.2.0
-  games_services: ^5.0.0
+  games_services: ^5.3.0
   soundpool: ^2.4.0
   firebase_core: ^3.0.0
   firebase_analytics: ^11.0.0
   firebase_app_check: ^0.3.0
-  google_mobile_ads: ^5.1.0
+  google_mobile_ads: ^9.1.0
 
 # Vendored, locally-patched soundpool: upstream 2.4.1 is unmaintained and still
 # references Flutter's removed v1 embedding `Registrar` API, which fails to
 # compile on current Flutter. third_party/soundpool removes that dead code
 # (the plugin already implements the v2 FlutterPlugin API).
+#
+# soundpool also never gained Swift Package Manager support (discontinued,
+# no maintained fork found either) and falls back to CocoaPods for iOS.
+# That's fine today — Flutter still builds CocoaPods-only plugins alongside
+# SPM ones — but keep an eye on this before CocoaPods' registry goes
+# read-only (Dec 2026); by then soundpool will need replacing.
 dependency_overrides:
   soundpool:
     path: third_party/soundpool
@@ -73,13 +79,6 @@ dev_dependencies:
 # The following section is specific to Flutter packages.
 flutter:
   generate: true
-
-  # google_mobile_ads pulls in webview_flutter_wkwebview, which only ships a
-  # Swift Package Manager manifest, while google_mobile_ads/games_services/
-  # soundpool are CocoaPods-only. Mixing the two breaks `pod install`, so
-  # disable SPM until all plugins support it.
-  config:
-    enable-swift-package-manager: false
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
