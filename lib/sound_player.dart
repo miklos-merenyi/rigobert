@@ -1,8 +1,8 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:audioplayers/audioplayers.dart';
-import 'package:soundpool/soundpool.dart';
+import 'package:flutter_soloud/flutter_soloud.dart';
 import 'game_colors.dart';
 
 // F minor pentatonic, one note per button combination (low → high complexity).
@@ -41,23 +41,18 @@ String _sts() => DateTime.now().toIso8601String().split('T').last;
 
 // ── SoundPlayer ────────────────────────────────────────────────────────────
 //
-// Instrument notes (combo + melody) play through Soundpool: it decodes each
-// clip to PCM once and plays the raw sample via Android's low-latency SoundPool
-// engine. Unlike MediaPlayer/ExoPlayer (audioplayers), it does not introduce
-// MP3 decoder padding or buffer-teardown pops at the tail — which is what
-// caused the end-of-sound clicking. Fail + R2D2 one-shots stay on audioplayers.
+// Instrument notes (combo + melody) play through SoLoud: a self-contained
+// C++ audio engine (not a wrapper around Android/iOS MediaPlayer/AVAudioPlayer)
+// that decodes each clip to PCM once and mixes raw samples itself. Unlike
+// MediaPlayer/ExoPlayer (audioplayers), it does not introduce MP3 decoder
+// padding or buffer-teardown pops at the tail — which is what caused the
+// end-of-sound clicking. Fail + R2D2 one-shots stay on audioplayers.
 
 class SoundPlayer {
-  // Low-latency engine for the instrument notes.
-  final Soundpool _pool = Soundpool.fromOptions(
-    options: const SoundpoolOptions(
-      streamType: StreamType.music,
-      maxStreams: 8, // allow notes to overlap without cutting each other off
-    ),
-  );
+  static final SoLoud _engine = SoLoud.instance;
 
-  // asset path → loaded sound id (resolved once preloading completes).
-  final Map<String, int> _soundIds = {};
+  // asset path → loaded source (resolved once preloading completes).
+  final Map<String, AudioSource> _sources = {};
   Future<void>? _loading;
 
   // One-shot effects stay on audioplayers (occasional, not latency-critical).
@@ -83,24 +78,27 @@ class SoundPlayer {
   /// into a chorus while the samples are still loading.
   Future<void> get ready => _loading ?? Future<void>.value();
 
-  /// Decode every instrument clip into the pool once, up front.
+  /// Decode every instrument clip into the engine once, up front.
   Future<void> _preload() async {
+    if (!_engine.isInitialized) {
+      await _engine.init();
+      _engine.setMaxActiveVoiceCount(8); // notes may overlap without cutting each other off
+    }
     for (final asset in _kComboAsset.values) {
-      if (_soundIds.containsKey(asset)) continue;
+      if (_sources.containsKey(asset)) continue;
       try {
-        final data = await rootBundle.load(asset);
-        _soundIds[asset] = await _pool.load(data);
+        _sources[asset] = await _engine.loadAsset(asset);
       } catch (e) {
         debugPrint('SoundPlayer: failed to load $asset ($e)');
       }
     }
   }
 
-  /// Returns the sound id for [asset], waiting on preload if still in flight.
-  Future<int?> _idFor(String asset) async {
-    if (_soundIds.containsKey(asset)) return _soundIds[asset];
+  /// Returns the loaded source for [asset], waiting on preload if still in flight.
+  Future<AudioSource?> _sourceFor(String asset) async {
+    if (_sources.containsKey(asset)) return _sources[asset];
     await _loading;
-    return _soundIds[asset];
+    return _sources[asset];
   }
 
   // ── Combo / instrument ───────────────────────────────────────────────────
@@ -126,12 +124,12 @@ class SoundPlayer {
     final asset = _kComboAsset[_key(combo)];
     if (asset == null) return;
     _comboActive = true;
-    final id = await _idFor(asset);
+    final source = await _sourceFor(asset);
     if (_kSoundDebug) {
       debugPrint('[SOUND ${_sts()}] ▶ PLAY combo=${_key(combo)} '
-          'asset=${asset.split('/').last} soundId=$id');
+          'asset=${asset.split('/').last} loaded=${source != null}');
     }
-    if (id != null) await _pool.play(id);
+    if (source != null) _engine.play(source);
     Future.delayed(const Duration(milliseconds: _slotMs), _onComboSlotEnd);
   }
 
@@ -150,7 +148,7 @@ class SoundPlayer {
   Future<void> stopCombo() async {
     _comboQueue.clear();
     _comboActive = false;
-    // SoundPool clips are short and play to completion; nothing to stop.
+    // Clips are short and play to completion; nothing to stop.
   }
 
   /// Convenience alias used during sequence display.
@@ -166,16 +164,16 @@ class SoundPlayer {
       if ((entry.key - frequency).abs() < 1.0) { asset = entry.value; break; }
     }
     if (asset == null) return;
-    final id = await _idFor(asset);
+    final source = await _sourceFor(asset);
     if (_kSoundDebug) {
       debugPrint('[SOUND ${_sts()}] ♪ NOTE freq=${frequency.toStringAsFixed(0)} '
-          'asset=${asset.split('/').last} soundId=$id');
+          'asset=${asset.split('/').last} loaded=${source != null}');
     }
-    if (id != null) await _pool.play(id);
+    if (source != null) _engine.play(source);
   }
 
   Future<void> stopMelody() async {
-    // SoundPool melody notes are short and play to completion.
+    // Melody notes are short and play to completion.
   }
 
   // ── Fail & R2D2 ─────────────────────────────────────────────────────────
@@ -203,7 +201,14 @@ class SoundPlayer {
   }
 
   void dispose() {
-    _pool.dispose();
+    // Only dispose our own loaded sources, not the whole (app-wide,
+    // singleton) SoLoud engine — the game screen's SoundPlayer is
+    // recreated on every visit, and re-initing the engine each time is
+    // unnecessary churn.
+    for (final source in _sources.values) {
+      unawaited(_engine.disposeSource(source));
+    }
+    _sources.clear();
     _failPlayer.dispose();
     _r2d2Player.dispose();
   }
