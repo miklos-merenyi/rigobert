@@ -15,6 +15,11 @@ A Google API key (Firebase `AIzaSy...` key, from `android/app/google-services.js
 - [x] Registered a debug token in Firebase Console for local testing
 - [x] Re-added AdMob interstitial ads (`ad_service.dart`, manifest/plist entries) after a git revert wiped the working tree
 - [x] Committed App Check (`e2715d4`) and AdMob (`0fbdeff`) changes
+- [x] Swapped placeholder AdMob App IDs (Android + iOS) and interstitial ad unit IDs for real ones from [apps.admob.com](https://apps.admob.com) (`1773413`)
+- [x] Hosted `app-ads.txt` at the developer website root (`https://miklos-merenyi.github.io/app-ads.txt`) so AdMob can verify both apps — domain confirmed live via both the Play Store listing and the iOS Support URL
+- [x] Fixed `flutter build ios` (was failing: CocoaPods couldn't resolve `webview_flutter_wkwebview`, an SPM-only transitive dep of `google_mobile_ads`) — first by disabling SPM (`3f4599c`), then properly by bumping `google_mobile_ads`/`games_services` to SPM-capable versions (`6523e4b`)
+- [x] Replaced the discontinued, non-SPM `soundpool` (vendored fork) with `flutter_soloud` (`d22a8a7`)
+- [x] Removed CocoaPods integration from the iOS project entirely — every plugin is now SPM-only (`453cce8`)
 
 ## To do
 
@@ -26,9 +31,13 @@ A Google API key (Firebase `AIzaSy...` key, from `android/app/google-services.js
 - [ ] Remove any temporary `getToken()` / `debugPrint` debug-token snippet from `main.dart` if still present
 
 ### AdMob
-- [ ] **Before any production release:** swap the placeholder AdMob App IDs in `AndroidManifest.xml` and `Info.plist` — they're currently Google's public **test IDs** (`ca-app-pub-3940256099942544~...`), not real ones. Get real IDs from [apps.admob.com](https://apps.admob.com)
 - [ ] Verify `NSUserTrackingUsageDescription` wording is final for App Store review
 - [ ] Test the interstitial actually shows/dismisses correctly on a real device before release
+- [ ] Check AdMob → Apps → [app] → App settings for both apps a day or two after publishing `app-ads.txt` — confirm status shows verified, not just pending
+
+### iOS build / audio
+- [ ] **Listen-test the instrument notes on a real device** (rapid button presses, queued combos, the melody intro) — `flutter_soloud` should avoid the tail-click that `audioplayers` had, same as `soundpool` did, but this hasn't been confirmed by ear yet
+- [ ] Before archiving a release build in Xcode: Target Runner → Build Settings → Strip Style → change from "All Symbols" to "Non-Global Symbols" (needed for `flutter_soloud`'s SPM package, which can't set this itself)
 
 ### Optional hardening
 - [ ] Consider restricting the Firebase API keys in Google Cloud Console → APIs & Services → Credentials (Android key → package name + SHA-1, iOS key → bundle ID) as defense in depth alongside App Check
