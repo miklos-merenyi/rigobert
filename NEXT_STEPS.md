@@ -20,6 +20,7 @@ A Google API key (Firebase `AIzaSy...` key, from `android/app/google-services.js
 - [x] Fixed `flutter build ios` (was failing: CocoaPods couldn't resolve `webview_flutter_wkwebview`, an SPM-only transitive dep of `google_mobile_ads`) — first by disabling SPM (`3f4599c`), then properly by bumping `google_mobile_ads`/`games_services` to SPM-capable versions (`6523e4b`)
 - [x] Replaced the discontinued, non-SPM `soundpool` (vendored fork) with `flutter_soloud` (`d22a8a7`)
 - [x] Removed CocoaPods integration from the iOS project entirely — every plugin is now SPM-only (`453cce8`)
+- [x] Diagnosed the 3.7MB→12.7MB Android size jump: `flutter_soloud` bundles Opus/Ogg/Vorbis/FLAC codec libs we don't use (all assets are MP3) alongside its engine; `NO_XIPH_LIBS=true` in `android/gradle.properties` cuts ~4.6MB of that (`3c5d80c`)
 
 ## To do
 
@@ -37,7 +38,7 @@ A Google API key (Firebase `AIzaSy...` key, from `android/app/google-services.js
 
 ### iOS build / audio
 - [ ] **Listen-test the instrument notes on a real device** (rapid button presses, queued combos, the melody intro) — `flutter_soloud` should avoid the tail-click that `audioplayers` had, same as `soundpool` did, but this hasn't been confirmed by ear yet
-- [ ] Before archiving a release build in Xcode: Target Runner → Build Settings → Strip Style → change from "All Symbols" to "Non-Global Symbols" (needed for `flutter_soloud`'s SPM package, which can't set this itself)
+- [x] Xcode's Strip Style → Non-Global Symbols (needed for `flutter_soloud`'s SPM package, which can't set this itself) — applied automatically to `project.pbxproj` on a fresh SPM resolve, no manual step needed after all
 
 ### Optional hardening
 - [ ] Consider restricting the Firebase API keys in Google Cloud Console → APIs & Services → Credentials (Android key → package name + SHA-1, iOS key → bundle ID) as defense in depth alongside App Check
