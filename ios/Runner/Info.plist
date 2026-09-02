@@ -74,9 +74,11 @@
 	<key>GADApplicationIdentifier</key>
 	<string>ca-app-pub-3586572619031314~8805930970</string>
 
-	<!-- Required for iOS 14+ App Tracking Transparency.
-	     Shown in Settings → Privacy → Tracking. Localise this string if needed. -->
-	<key>NSUserTrackingUsageDescription</key>
-	<string>We show ads to keep the game free. No personal data is collected.</string>
+	<!-- No NSUserTrackingUsageDescription: the app never calls the ATT API
+	     (no app_tracking_transparency dependency, no requestTrackingAuthorization
+	     call), so ads are served non-personalized/contextual only. Apple's
+	     automated review flags the key's mere presence in Info.plist even when
+	     unused, so it must stay out — re-add it only alongside an actual ATT
+	     prompt implementation, and update App Privacy accordingly if you do. -->
 </dict>
 </plist>
