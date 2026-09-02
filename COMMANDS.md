@@ -1,4 +1,4 @@
-adb install -r build/app/outputs/flutter-apk/app-debug.apk
+andb install -r build/app/outputs/flutter-apk/app-debug.apk
 xcrun simctl install booted build/ios/iphonesimulator/Runner.app
 xcrun simctl launch booted com.rigobert.rigobertSays
 ios-deploy --bundle build/ios/iphoneos/Runner.app
@@ -21,10 +21,17 @@ LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 flutter build ipa --release \
     --export-options-plist=ios/ExportOptionsAppStore.plist
 
 # 2. Fix the objective_c.framework dSYM (always missing — built via Dart native-assets,
-#    not a normal Xcode target, so Xcode never generates a dSYM for it)
-BIN=build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app/Frameworks/objective_c.framework/objective_c
-dsymutil -o /tmp/objc.dSYM "$BIN"
-cp -R /tmp/objc.dSYM build/ios/archive/Runner.xcarchive/dSYMs/objective_c.framework.dSYM
+ARCHIVE=build/ios/archive/Runner.xcarchive
+APP="$ARCHIVE/Products/Applications/Runner.app"
+for FW in FirebaseAnalytics GoogleAdsOnDeviceConversion GoogleAppMeasurement GoogleAppMeasurementIdentitySupport GoogleMobileAds UserMessagingPlatform; do
+    BIN="$APP/Frameworks/$FW.framework/$FW"
+    if [ -f "$BIN" ]; then
+        dsymutil -o "/tmp/$FW.dSYM" "$BIN"
+        cp -R "/tmp/$FW.dSYM" "$ARCHIVE/dSYMs/$FW.framework.dSYM"
+    else
+        echo "WARNING: $BIN not found, skipping"
+    fi
+done
 
 # 3. Copy into Xcode's Archives folder so Organizer picks it up (a CLI archive doesn't
 #    register itself — Organizer only scans ~/Library/Developer/Xcode/Archives/<date>/)
